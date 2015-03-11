@@ -9,18 +9,20 @@ static const GPathInfo LINE_PATH_POINTS = {
   // implementation. Counter-clockwise will work in older firmwares, but
   // it is not officially supported
   (GPoint []) {
-    {-5, 125},
-    {5, 125},
-    {2, -125},
-	{-2, -125}
+    {-3, 125},
+    {3, 125},
+    {3, -125},
+	{-3, -125}
   }
 };
 
+const int midWidth = 47;
+const int midHeight = 59;
+
 static Window *s_main_window;
+static TextLayer * s_time_layer;
 static Layer *s_path_layer;
-
 static GPath *s_line_path;
-
 static int s_path_angle;
 
 // This is the layer update callback which is called on render updates
@@ -34,13 +36,26 @@ static void path_layer_update_callback(Layer *layer, GContext *ctx) {
 	gpath_rotate_to(s_line_path, (TRIG_MAX_ANGLE / 360) * s_path_angle);
 
 	graphics_context_set_stroke_color(ctx, GColorWhite);
+	graphics_context_set_fill_color(ctx, GColorBlack);
 	gpath_draw_outline(ctx, s_line_path);
+	gpath_draw_filled(ctx, s_line_path);
 }
 
 static void update_time() {
 	time_t tempTime = time(NULL);
 	struct tm * tick_time = localtime(&tempTime);
 
+	Layer * timeLayer = text_layer_get_layer(s_time_layer);
+	
+	static char buffer[] = "00";
+	
+	strftime(buffer, sizeof("00"), "%I", tick_time);
+	
+	layer_set_frame(timeLayer, GRect(midWidth,midHeight,50,50));
+	text_layer_set_text(s_time_layer, buffer);
+	
+	layer_mark_dirty(timeLayer);
+	
 	s_path_angle = (((tick_time->tm_hour % 12) * 60) + tick_time->tm_min) * 360 / (12 * 60);
 	gpath_rotate_to(s_line_path, (TRIG_MAX_ANGLE / 360) * s_path_angle);
 	layer_mark_dirty(s_path_layer);
@@ -53,9 +68,18 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 static void main_window_load(Window *window) {
 	Layer *window_layer = window_get_root_layer(window);
 	GRect bounds = layer_get_frame(window_layer);
+	
+	s_time_layer = text_layer_create(GRect(47, 0, 50, 50));
+	text_layer_set_background_color(s_time_layer, GColorBlack);
+	text_layer_set_text_color(s_time_layer, GColorWhite);
+	text_layer_set_text(s_time_layer, "12");
 
+	text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+	text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
+	
 	s_path_layer = layer_create(bounds);
 	layer_set_update_proc(s_path_layer, path_layer_update_callback);
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));
 	layer_add_child(window_layer, s_path_layer);
 
 	// Move all paths to the center of the screen
@@ -70,7 +94,7 @@ static void init() {
 	// Pass the corresponding GPathInfo to initialize a GPath
 	s_line_path = gpath_create(&LINE_PATH_POINTS);
 
-	tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+	tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
 	
 	// Create Window
 	s_main_window = window_create();
