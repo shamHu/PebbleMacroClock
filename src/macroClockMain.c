@@ -19,12 +19,9 @@ static const GPathInfo LINE_PATH_POINTS = {
 static Window *s_main_window;
 static Layer *s_path_layer;
 
-static GPath *s_path_array[NUM_PATHS];
 static GPath *s_line_path;
 
-static int s_current_path_index;
 static int s_path_angle;
-static bool s_outline_mode;
 
 // This is the layer update callback which is called on render updates
 static void path_layer_update_callback(Layer *layer, GContext *ctx) {
@@ -40,15 +37,17 @@ static void path_layer_update_callback(Layer *layer, GContext *ctx) {
 	gpath_draw_outline(ctx, s_line_path);
 }
 
-static int path_angle_add(int angle) {
-	return s_path_angle = (s_path_angle + angle) % 360;
+static void update_time() {
+	time_t tempTime = time(NULL);
+	struct tm * tick_time = localtime(&tempTime);
+
+	s_path_angle = (((tick_time->tm_hour % 12) * 60) + tick_time->tm_min) * 360 / (12 * 60);
+	gpath_rotate_to(s_line_path, (TRIG_MAX_ANGLE / 360) * s_path_angle);
+	layer_mark_dirty(s_path_layer);
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-	time_t tempTime = time(NULL);
-	struct tm * timeStruct = localtime(&tempTime);
-
-	s_path_angle = (((15 % 12) * 60) + timeStruct->tm_min) * 360 / (12 * 60);
+	update_time();
 }
 
 static void main_window_load(Window *window) {
@@ -71,7 +70,7 @@ static void init() {
 	// Pass the corresponding GPathInfo to initialize a GPath
 	s_line_path = gpath_create(&LINE_PATH_POINTS);
 
-	tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+	tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
 	
 	// Create Window
 	s_main_window = window_create();
@@ -94,3 +93,4 @@ int main(void) {
 	app_event_loop();
 	deinit();
 }
+
