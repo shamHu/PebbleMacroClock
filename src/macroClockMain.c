@@ -63,8 +63,8 @@ static void path_layer_update_callback(Layer *layer, GContext *ctx) {
 
 	graphics_context_set_stroke_color(ctx, GColorWhite);
 	graphics_context_set_fill_color(ctx, GColorBlack);
+	gpath_draw_filled(ctx, s_line_path);	
 	gpath_draw_outline(ctx, s_line_path);
-	gpath_draw_filled(ctx, s_line_path);
 }
 
 static void dot_layer_update_callback(Layer *layer, GContext *ctx) {
