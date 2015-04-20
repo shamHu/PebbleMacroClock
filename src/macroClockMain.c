@@ -25,7 +25,7 @@ const int midWidth = 47;
 const int midHeight = 59;
 const int screenMidWidth = 72;
 const int screenMidHeight = 84;
-const int radius = 230;
+const int radius = 250;
 const int clockUnit = 30;
 
 static Window *s_main_window;
