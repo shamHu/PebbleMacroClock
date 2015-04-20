@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 	
-#define M_PI 3.14159265358979323846
+#define M_PI 3.14
 	
 // This defines graphics path information to be loaded as a path later
 static const GPathInfo LINE_PATH_POINTS = {
@@ -23,7 +23,9 @@ static const GPathInfo LINE_PATH_POINTS = {
 
 const int midWidth = 47;
 const int midHeight = 59;
-const int radius = 200;
+const int screenMidWidth = 72;
+const int screenMidHeight = 84;
+const int radius = 230;
 const int clockUnit = 30;
 
 static Window *s_main_window;
@@ -34,9 +36,11 @@ static TextLayer * s_time_layer2;
 static Layer *s_path_layer;
 static GPath *s_line_path;
 
-static double s_path_angle;
+static Layer *s_dot_layer;
+
+static int s_path_angle;
 static double s_path_angle_adj_rad;
-static double s_hour_angle;
+static int s_hour_angle;
 static double s_hour_angle_adj_rad;
 
 // This is the layer update callback which is called on render updates
@@ -55,7 +59,107 @@ static void path_layer_update_callback(Layer *layer, GContext *ctx) {
 	gpath_draw_filled(ctx, s_line_path);
 }
 
-static void update_time() {
+static void dot_layer_update_callback(Layer *layer, GContext *ctx) {
+	graphics_context_set_stroke_color(ctx, GColorWhite);
+	graphics_context_set_fill_color(ctx, GColorWhite);
+	
+	time_t tempTime = time(NULL);
+	struct tm * tick_time = localtime(&tempTime);
+	
+	s_path_angle = (((tick_time->tm_hour % 12) * 60) + tick_time->tm_min) / 2;
+	s_path_angle_adj_rad = -(s_path_angle * M_PI / 180) + (M_PI / 2);
+	
+	s_hour_angle = (((tick_time->tm_hour % 12) * 60)) / 2;
+	s_hour_angle_adj_rad = -(s_hour_angle * M_PI / 180) + (M_PI / 2);
+	
+	if (s_path_angle_adj_rad < -M_PI) {
+		while (s_path_angle_adj_rad < 0) {
+			s_path_angle_adj_rad += (2 * M_PI);
+		}
+	}
+	
+	if (s_path_angle_adj_rad < -M_PI) {
+		while (s_hour_angle_adj_rad < 0) {
+			s_hour_angle_adj_rad += (2 * M_PI);
+		}
+	}
+	
+	double timeX = cos(s_path_angle_adj_rad) * radius;	
+	double timeY = sin(s_path_angle_adj_rad) * radius;
+	
+	double preDotX = cos(s_hour_angle_adj_rad - ((0 * M_PI / 6) - (M_PI / 24))) * radius;
+	double preDotX2 = cos(s_hour_angle_adj_rad - ((0 * M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double preDotX3 = cos(s_hour_angle_adj_rad - ((0 * M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
+	double preDotY = sin(s_hour_angle_adj_rad - ((0 * M_PI / 6) - (M_PI / 24))) * radius;
+	double preDotY2 = sin(s_hour_angle_adj_rad - ((0 * M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double preDotY3 = sin(s_hour_angle_adj_rad - ((0 * M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
+	double postDotX = cos(s_hour_angle_adj_rad - ((M_PI / 6) - (M_PI / 24))) * radius;
+	double postDotX2 = cos(s_hour_angle_adj_rad - ((M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double postDotX3 = cos(s_hour_angle_adj_rad - ((M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
+	double postDotY = sin(s_hour_angle_adj_rad - ((M_PI / 6) - (M_PI / 24))) * radius;
+	double postDotY2 = sin(s_hour_angle_adj_rad - ((M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double postDotY3 = sin(s_hour_angle_adj_rad - ((M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
+	double postPostDotX = cos(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (M_PI / 24))) * radius;
+	double postPostDotX2 = cos(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double postPostDotX3 = cos(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
+	double postPostDotY = sin(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (M_PI / 24))) * radius;
+	double postPostDotY2 = sin(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double postPostDotY3 = sin(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
+	struct GPoint preDot1, 
+		preDot2, 
+		preDot3, 
+		postDot1, 
+		postDot2, 
+		postDot3, 
+		postPostDot1, 
+		postPostDot2, 
+		postPostDot3;
+	
+	preDot1.x = (preDotX - timeX) + screenMidWidth;
+	preDot1.y = (timeY - preDotY) + screenMidHeight;
+	
+	preDot2.x = (preDotX2 - timeX) + screenMidWidth;
+	preDot2.y = (timeY - preDotY2) + screenMidHeight;
+	
+	preDot3.x = (preDotX3 - timeX) + screenMidWidth;
+	preDot3.y = (timeY - preDotY3) + screenMidHeight;
+	
+	postDot1.x = (postDotX - timeX) + screenMidWidth;
+	postDot1.y = (timeY - postDotY) + screenMidHeight;
+	
+	postDot2.x = (postDotX2 - timeX) + screenMidWidth;
+	postDot2.y = (timeY - postDotY2) + screenMidHeight;
+	
+	postDot3.x = (postDotX3 - timeX) + screenMidWidth;
+	postDot3.y = (timeY - postDotY3) + screenMidHeight;
+	
+	postPostDot1.x = (postPostDotX - timeX) + screenMidWidth;
+	postPostDot1.y = (timeY - postPostDotY) + screenMidHeight;
+	
+	postPostDot2.x = (postPostDotX2 - timeX) + screenMidWidth;
+	postPostDot2.y = (timeY - postPostDotY2) + screenMidHeight;
+	
+	postPostDot3.x = (postPostDotX3 - timeX) + screenMidWidth;
+	postPostDot3.y = (timeY - postPostDotY3) + screenMidHeight;
+	
+	graphics_fill_circle(ctx, preDot1, 3);
+	graphics_fill_circle(ctx, preDot2, 5);	
+	graphics_fill_circle(ctx, preDot3, 3);
+	graphics_fill_circle(ctx, postDot1, 3);
+	graphics_fill_circle(ctx, postDot2, 5);	
+	graphics_fill_circle(ctx, postDot3, 3);
+	graphics_fill_circle(ctx, postPostDot1, 3);
+	graphics_fill_circle(ctx, postPostDot2, 5);	
+	graphics_fill_circle(ctx, postPostDot3, 3);
+}
+
+static void update_time() {	
 	time_t tempTime = time(NULL);
 	struct tm * tick_time = localtime(&tempTime);
 	int currHour = tick_time->tm_hour;
@@ -74,6 +178,26 @@ static void update_time() {
 	s_hour_angle = (((tick_time->tm_hour % 12) * 60)) / 2;
 	s_hour_angle_adj_rad = -(s_hour_angle * M_PI / 180) + (M_PI / 2);
 	
+	/*s_path_angle = (((23 % 12) * 60) + 4) / 2;
+	s_path_angle_adj_rad = -(s_path_angle * M_PI / 180) + (M_PI / 2);
+	
+	s_hour_angle = (((23 % 12) * 60)) / 2;
+	s_hour_angle_adj_rad = -(s_hour_angle * M_PI / 180) + (M_PI / 2);*/
+	
+	if (s_path_angle_adj_rad < -M_PI) {
+		while (s_path_angle_adj_rad < 0) {
+			s_path_angle_adj_rad += (2 * M_PI);
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "loop");
+		}
+	}
+	
+	if (s_path_angle_adj_rad < -M_PI) {
+		while (s_hour_angle_adj_rad < 0) {
+			s_hour_angle_adj_rad += (2 * M_PI);
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "lizoop");
+		}
+	}
+	
 	if (tick_time->tm_hour == 23) {
 		tick_time->tm_hour = 0;
 	}
@@ -82,7 +206,7 @@ static void update_time() {
 	}
 	
 	strftime(buffer2, sizeof("00"), "%I", tick_time);
-		
+			 
 	double timeX = cos(s_path_angle_adj_rad) * radius;	
 	double timeY = sin(s_path_angle_adj_rad) * radius;
 	double hourX = cos(s_hour_angle_adj_rad) * radius;
@@ -91,6 +215,14 @@ static void update_time() {
 	double hourX2 = cos(s_hour_angle_adj_rad - (0.5236)) * radius;
 	double hourY2 = sin(s_hour_angle_adj_rad - (0.5236)) * radius;
 	
+	double preDotX = cos(s_hour_angle_adj_rad + ((M_PI / 6) - (M_PI / 24))) * radius;
+	double preDotX2 = cos(s_hour_angle_adj_rad + ((M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double preDotX3 = cos(s_hour_angle_adj_rad + ((M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
+	double preDotY = sin(s_hour_angle_adj_rad + ((M_PI / 6) - (M_PI / 24))) * radius;
+	double preDotY2 = sin(s_hour_angle_adj_rad + ((M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double preDotY3 = sin(s_hour_angle_adj_rad + ((M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
 	int xPos = -(timeX - hourX) + midWidth;
 	int yPos = -(hourY - timeY) + midHeight;
 	
@@ -98,6 +230,15 @@ static void update_time() {
 	int yPos2 = -(hourY2 - timeY) + midHeight;
 	layer_set_frame(timeLayer, GRect(xPos,yPos,50,50));
 	layer_set_frame(timeLayer2, GRect(xPos2,yPos2,50,50));
+	
+	int preDotXPos = (preDotX - timeX) + screenMidWidth;
+	int preDotYPos = (timeY - preDotY) + screenMidHeight;
+	
+	int preDot2XPos = (preDotX2 - timeX) + screenMidWidth;
+	int preDot2YPos = (timeY - preDotY2) + screenMidHeight;
+	
+	int preDot3XPos = (preDotX3 - timeX) + screenMidWidth;
+	int preDot3YPos = (timeY - preDotY3) + screenMidHeight;
 		
 	char * bufferS = buffer+1;
 	char * buffer2S = buffer2+1;
@@ -105,7 +246,7 @@ static void update_time() {
 	if (currHour > 0 && currHour < 10) {
 		text_layer_set_text(s_time_layer, bufferS);
 	}
-	else if (currHour > 12 && currHour < 23) {
+	else if (currHour > 12 && currHour < 22) {
 		text_layer_set_text(s_time_layer, bufferS);
 	}
 	else {
@@ -115,7 +256,7 @@ static void update_time() {
 	if (currHour >= 0 && currHour < 9) {
 		text_layer_set_text(s_time_layer2, buffer2S);
 	}
-	else if (currHour >= 12 && currHour < 22) {
+	else if (currHour >= 12 && currHour < 21) {
 		text_layer_set_text(s_time_layer2, buffer2S);
 	}
 	else {
@@ -125,15 +266,17 @@ static void update_time() {
 	layer_mark_dirty(timeLayer);
 	layer_mark_dirty(timeLayer2);
 	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "end update");
+	
 	gpath_rotate_to(s_line_path, (TRIG_MAX_ANGLE / 360) * s_path_angle);
-	layer_mark_dirty(s_path_layer);
+	layer_mark_dirty(s_path_layer);	
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 	update_time();
 }
 
-static void main_window_load(Window *window) {	
+static void main_window_load(Window *window) {		
 	time_t tempTime = time(NULL);
 	struct tm * tick_time = localtime(&tempTime);
 	int currHour = tick_time->tm_hour;
@@ -148,36 +291,74 @@ static void main_window_load(Window *window) {
 	
 	s_hour_angle = (((tick_time->tm_hour % 12) * 60)) / 2;
 	s_hour_angle_adj_rad = -(s_hour_angle * M_PI / 180) + (M_PI / 2);
-		
+	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "initial path: %d", (int)(s_path_angle_adj_rad * 100));
+	
+	if (s_path_angle_adj_rad < -M_PI) {
+		while (s_path_angle_adj_rad < 0) {
+			s_path_angle_adj_rad += (2 * M_PI);
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "loop");
+		}
+	}
+	
+	if (s_path_angle_adj_rad < -M_PI) {
+		while (s_hour_angle_adj_rad < 0) {
+			s_hour_angle_adj_rad += (2 * M_PI);
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "lizoop");
+		}
+	}
+	
 	if (tick_time->tm_hour == 23) {
 		tick_time->tm_hour = 0;
 	}
 	else {
 		tick_time->tm_hour++;
 	}	
-	strftime(buffer2, sizeof("00"), "%I", tick_time);
 		
+	strftime(buffer2, sizeof("00"), "%I", tick_time);
+	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "path: %d", (int)(s_path_angle_adj_rad * 100));
+	
 	double timeX = cos(s_path_angle_adj_rad) * radius;	
+	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "here?");
+	
 	double timeY = sin(s_path_angle_adj_rad) * radius;
 	double hourX = cos(s_hour_angle_adj_rad) * radius;
 	double hourY = sin(s_hour_angle_adj_rad) * radius;
-	
-	double hourX2 = cos(s_hour_angle_adj_rad - (0.5236)) * radius;
-	double hourY2 = sin(s_hour_angle_adj_rad - (0.5236)) * radius;
-	
-	int xPos = -(timeX - hourX) + midWidth;
-	int yPos = -(hourY - timeY) + midHeight;
-	
-	int xPos2 = -(timeX - hourX2) + midWidth;
-	int yPos2 = -(hourY2 - timeY) + midHeight;
+		
+	double hourX2 = cos(s_hour_angle_adj_rad - (M_PI / 6)) * radius;
+	double hourY2 = sin(s_hour_angle_adj_rad - (M_PI / 6)) * radius;
 			
+	double preDotX = cos(s_hour_angle_adj_rad + ((M_PI / 6) - (M_PI / 24))) * radius;
+	double preDotX2 = cos(s_hour_angle_adj_rad + ((M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double preDotX3 = cos(s_hour_angle_adj_rad + ((M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
+	double preDotY = sin(s_hour_angle_adj_rad + ((M_PI / 6) - (M_PI / 24))) * radius;
+	double preDotY2 = sin(s_hour_angle_adj_rad + ((M_PI / 6) - (2 * M_PI / 24))) * radius;
+	double preDotY3 = sin(s_hour_angle_adj_rad + ((M_PI / 6) - (3 * M_PI / 24))) * radius;
+	
+	int xPos = (hourX - timeX) + midWidth;
+	int yPos = (timeY - hourY) + midHeight;
+	
+	int xPos2 = (hourX2 - timeX) + midWidth;
+	int yPos2 = (timeY - hourY2) + midHeight;
+	
+	int preDotXPos = (preDotX - timeX) + screenMidWidth;
+	int preDotYPos = (timeY - preDotY) + screenMidHeight;
+	
+	int preDot2XPos = (preDotX2 - timeX) + screenMidWidth;
+	int preDot2YPos = (timeY - preDotY2) + screenMidHeight;
+	
+	int preDot3XPos = (preDotX3 - timeX) + screenMidWidth;
+	int preDot3YPos = (timeY - preDotY3) + screenMidHeight;
+	
 	char * bufferS = buffer+1;
 	char * buffer2S = buffer2+1;
-		
+			
 	s_time_layer = text_layer_create(GRect(xPos, yPos, 50, 50));
 	text_layer_set_background_color(s_time_layer, GColorBlack);
 	text_layer_set_text_color(s_time_layer, GColorWhite);
-	//text_layer_set_text(s_time_layer, "12");
 
 	s_time_layer2 = text_layer_create(GRect(xPos2, yPos2, 50, 50));
 	text_layer_set_background_color(s_time_layer2, GColorBlack);
@@ -212,13 +393,19 @@ static void main_window_load(Window *window) {
 	text_layer_set_font(s_time_layer2, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
 	text_layer_set_text_alignment(s_time_layer2, GTextAlignmentCenter);
 	
+	s_dot_layer = layer_create(bounds);
+	layer_set_update_proc(s_dot_layer, dot_layer_update_callback);
+	
 	s_path_layer = layer_create(bounds);
 	layer_set_update_proc(s_path_layer, path_layer_update_callback);
 	
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));		
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer2));	
+	layer_add_child(window_layer, s_dot_layer);
 	layer_add_child(window_layer, s_path_layer);	
 	
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "end load");
+			
 	// Move all paths to the center of the screen
 	gpath_move_to(s_line_path, GPoint(bounds.size.w/2, bounds.size.h/2));
 	
@@ -226,9 +413,10 @@ static void main_window_load(Window *window) {
 
 static void main_window_unload(Window *window) {
 	layer_destroy(s_path_layer);
+	layer_destroy(s_dot_layer);
 }
 
-static void init() {
+static void init() {	
 	s_line_path = gpath_create(&LINE_PATH_POINTS);
 	
 	// Create Window
