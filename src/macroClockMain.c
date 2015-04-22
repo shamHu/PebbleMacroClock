@@ -68,9 +68,7 @@ static void path_layer_update_callback(Layer *layer, GContext *ctx) {
 }
 
 static void dot_layer_update_callback(Layer *layer, GContext *ctx) {
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "begin dot update");
-	
+		
 	graphics_context_set_stroke_color(ctx, GColorWhite);
 	graphics_context_set_fill_color(ctx, GColorWhite);
 	
@@ -110,29 +108,14 @@ static void dot_layer_update_callback(Layer *layer, GContext *ctx) {
 		
 	double postDotY = getSin(s_hour_angle_adj_rad - ((M_PI / 6) - (M_PI / 24))) * radius;
 	double postDotY2 = getSin(s_hour_angle_adj_rad - ((M_PI / 6) - (2 * M_PI / 24))) * radius;
-	double postDotY3 = getSin(s_hour_angle_adj_rad - ((M_PI / 6) - (3 * M_PI / 24))) * radius;
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "problem1?");
-	
+	double postDotY3 = getSin(s_hour_angle_adj_rad - ((M_PI / 6) - (3 * M_PI / 24))) * radius;	
 	double postPostDotX = getCos(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (M_PI / 24))) * radius;
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "problem2?");
 	double postPostDotX2 = getCos(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (2 * M_PI / 24))) * radius;
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "problem3?");
 	double postPostDotX3 = getCos(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (3 * M_PI / 24))) * radius;
-		
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "problem4?");
 	double postPostDotY = getSin(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (M_PI / 24))) * radius;
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "problem5?");
 	double postPostDotY2 = getSin(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (2 * M_PI / 24))) * radius;
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "problem6?");
 	double postPostDotY3 = getSin(s_hour_angle_adj_rad - ((2 * M_PI / 6) - (3 * M_PI / 24))) * radius;
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "problem4?");
-	
+		
 	struct GPoint preDot1, 
 		preDot2, 
 		preDot3, 
@@ -170,8 +153,6 @@ static void dot_layer_update_callback(Layer *layer, GContext *ctx) {
 	postPostDot3.x = (postPostDotX3 - timeX) + screenMidWidth;
 	postPostDot3.y = (timeY - postPostDotY3) + screenMidHeight;
 	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "problem5?");
-	
 	graphics_fill_circle(ctx, preDot1, 3);
 	graphics_fill_circle(ctx, preDot2, 5);	
 	graphics_fill_circle(ctx, preDot3, 3);
@@ -181,14 +162,9 @@ static void dot_layer_update_callback(Layer *layer, GContext *ctx) {
 	graphics_fill_circle(ctx, postPostDot1, 3);
 	graphics_fill_circle(ctx, postPostDot2, 5);	
 	graphics_fill_circle(ctx, postPostDot3, 3);
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "end dot update");
 }
 
-static void update_time() {	
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "begin update");
-	
+static void update_time() {		
 	time_t tempTime = time(NULL);
 	struct tm * tick_time = localtime(&tempTime);
 	int currHour = tick_time->tm_hour;
@@ -206,12 +182,6 @@ static void update_time() {
 	
 	s_hour_angle = (((tick_time->tm_hour % 12) * 60)) / 2;
 	s_hour_angle_adj_rad = -(s_hour_angle * M_PI / 180) + (M_PI / 2);
-	
-	/*s_path_angle = (((23 % 12) * 60) + 4) / 2;
-	s_path_angle_adj_rad = -(s_path_angle * M_PI / 180) + (M_PI / 2);
-	
-	s_hour_angle = (((23 % 12) * 60)) / 2;
-	s_hour_angle_adj_rad = -(s_hour_angle * M_PI / 180) + (M_PI / 2);*/
 	
 	if (s_path_angle_adj_rad > (M_PI / 2) &&
 	   s_path_angle_adj_rad < (3 * M_PI / 2)) {
@@ -231,9 +201,7 @@ static void update_time() {
 	}
 	
 	strftime(buffer2, sizeof("00"), "%I", tick_time);
-			 
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "problem in update?");
-	
+				
 	double timeX = getCos(s_path_angle_adj_rad) * radius;	
 	double timeY = getSin(s_path_angle_adj_rad) * radius;
 	double hourX = getCos(s_hour_angle_adj_rad) * radius;
@@ -275,9 +243,7 @@ static void update_time() {
 	
 	layer_mark_dirty(timeLayer);
 	layer_mark_dirty(timeLayer2);
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "end update");
-	
+		
 	gpath_rotate_to(s_line_path, (TRIG_MAX_ANGLE / 360) * s_path_angle);
 	layer_mark_dirty(s_path_layer);	
 }
@@ -321,18 +287,12 @@ static void main_window_load(Window *window) {
 		
 	strftime(buffer2, sizeof("00"), "%I", tick_time);
 	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "path: %d", (int)(s_path_angle_adj_rad * 100));
-	
 	double timeX = getCos(s_path_angle_adj_rad) * radius;		
 	double timeY = getSin(s_path_angle_adj_rad) * radius;
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "eh");
-	
+		
 	double hourX = getCos(s_hour_angle_adj_rad) * radius;
 	double hourY = getSin(s_hour_angle_adj_rad) * radius;
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "first sight of trouble!");
-		
+			
 	double hourX2 = getCos(s_hour_angle_adj_rad - (M_PI / 6)) * radius;
 	double hourY2 = getSin(s_hour_angle_adj_rad - (M_PI / 6)) * radius;
 	
@@ -392,9 +352,7 @@ static void main_window_load(Window *window) {
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer2));	
 	layer_add_child(window_layer, s_dot_layer);
 	layer_add_child(window_layer, s_path_layer);	
-	
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "end load");
-			
+				
 	// Move all paths to the center of the screen
 	gpath_move_to(s_line_path, GPoint(bounds.size.w/2, bounds.size.h/2));
 	

@@ -1,7 +1,7 @@
 {
     "appKeys": {},
     "capabilities": [
-        ""
+        "configurable"
     ],
     "companyName": "shamhu@gmail.com",
     "longName": "Macro Clock",
@@ -9,8 +9,12 @@
     "resources": {
         "media": []
     },
-    "sdkVersion": "2",
+    "sdkVersion": "3",
     "shortName": "Macro Clock",
+    "targetPlatforms": [
+        "aplite",
+        "basalt"
+    ],
     "uuid": "1e40b260-b1c2-4e46-90d1-20fc26173db3",
     "versionCode": 1,
     "versionLabel": "1.0",
