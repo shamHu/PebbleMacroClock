@@ -519,7 +519,7 @@ static void init() {
 		handBorderColor = getColor(strBuffer);
 	}
 	else {
-		handBorderColor = GColorWhite;
+		handBorderColor = GColorBlack;
 	}
 	
 	if (persist_exists(MK_HAND_OUTLINE_BOOL)) {
