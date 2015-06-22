@@ -21,6 +21,15 @@ static const GPathInfo LINE_PATH_POINTS = {
   }
 };
 
+enum MessageKeys {
+	MK_BACKGROUND_COLOR = 0,
+	MK_HOUR_COLOR = 1,
+	MK_HAND_COLOR = 2,
+	MK_DOT_COLOR = 3,
+	MK_HAND_OUTLINE_COLOR = 4,
+	MK_HAND_OUTLINE_BOOL = 5
+};
+
 const int midWidth = 47;
 const int midHeight = 59;
 const int screenMidWidth = 72;
@@ -43,6 +52,13 @@ static double s_path_angle_adj_rad;
 static int s_hour_angle;
 static double s_hour_angle_adj_rad;
 
+static GColor backgroundColor;
+static GColor handColor;
+static GColor handBorderColor;
+static GColor dotColor;
+static GColor hourColor;
+static bool handBorderToggle;
+
 static double getCos(double angle) {		
 	return ( (double) cos_lookup(angle * TRIG_MAX_ANGLE / (2 * M_PI)) / (double) TRIG_MAX_RATIO);
 }
@@ -51,7 +67,103 @@ static double getSin(double angle) {
 		return ( (double) sin_lookup(angle * TRIG_MAX_ANGLE / (2 * M_PI)) / (double) TRIG_MAX_RATIO);
 }
 
-// This is the layer update callback which is called on render updates
+static GColor getColor(char* colorString) {
+	if (strcmp(colorString, "blk") == 0) {
+		return GColorBlack;
+	}
+	else if (strcmp(colorString, "wht") == 0) {
+		return GColorWhite;
+	}
+	else if (strcmp(colorString, "red") == 0) {
+		return GColorRed;
+	}
+	else if (strcmp(colorString, "org") == 0) {
+		return GColorOrange;
+	}
+	else if (strcmp(colorString, "ylw") == 0) {
+		return GColorYellow;
+	}
+	else if (strcmp(colorString, "grn") == 0) {
+		return GColorGreen;
+	}
+	else if (strcmp(colorString, "blu") == 0) {
+		return GColorBlue;
+	}
+	else if (strcmp(colorString, "prp") == 0) {
+		return GColorPurple;
+	}
+	else if (strcmp(colorString, "pnk") == 0) {
+		return GColorShockingPink;
+	}
+	else if (strcmp(colorString, "gry") == 0) {
+		return GColorDarkGray;
+	}
+	else {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "getColor received an invalid string: %s", colorString);
+		return GColorWhite;
+	}
+}
+
+static void in_received_handler(DictionaryIterator *received, void *ctx) {	
+	Tuple *currDictItem = dict_read_first(received);
+		
+	while (currDictItem) {		
+		if (currDictItem->key == MK_BACKGROUND_COLOR) {
+			backgroundColor = getColor(currDictItem->value->cstring);
+			persist_write_string(MK_BACKGROUND_COLOR, currDictItem->value->cstring);
+		} 
+		else if (currDictItem->key == MK_HOUR_COLOR) {
+			hourColor = getColor(currDictItem->value->cstring);
+			persist_write_string(MK_HOUR_COLOR, currDictItem->value->cstring);
+		}
+		else if (currDictItem->key == MK_HAND_COLOR) {
+			handColor = getColor(currDictItem->value->cstring);
+			persist_write_string(MK_HAND_COLOR, currDictItem->value->cstring);
+		}
+		else if (currDictItem->key == MK_DOT_COLOR) {
+			dotColor = getColor(currDictItem->value->cstring);
+			persist_write_string(MK_DOT_COLOR, currDictItem->value->cstring);
+		}
+		else if (currDictItem->key == MK_HAND_OUTLINE_COLOR) {
+			if (strcmp(currDictItem->value->cstring, "nob") == 0) {
+				handBorderColor = GColorBlack;
+				handBorderToggle = false;
+				persist_write_string(MK_HAND_OUTLINE_COLOR, "blk");
+				persist_write_bool(MK_HAND_OUTLINE_BOOL, handBorderToggle);
+			}
+			else {
+				handBorderColor = getColor(currDictItem->value->cstring);
+				handBorderToggle = true;
+				persist_write_string(MK_HAND_OUTLINE_COLOR, currDictItem->value->cstring);
+				persist_write_bool(MK_HAND_OUTLINE_BOOL, handBorderToggle);
+			}
+		}
+		else {
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "default!, %d", (int) currDictItem->key);
+		}
+		
+		currDictItem = dict_read_next(received);
+	}
+	
+	window_set_background_color(s_main_window, backgroundColor);
+	text_layer_set_background_color(s_time_layer, backgroundColor);
+	text_layer_set_background_color(s_time_layer2, backgroundColor);
+	text_layer_set_text_color(s_time_layer, hourColor);
+	text_layer_set_text_color(s_time_layer2, hourColor);
+	
+	Layer * timeLayer = text_layer_get_layer(s_time_layer);
+	Layer * timeLayer2 = text_layer_get_layer(s_time_layer2);
+	layer_mark_dirty(timeLayer);
+	layer_mark_dirty(timeLayer2);
+	layer_mark_dirty(s_dot_layer);
+	layer_mark_dirty(s_path_layer);	
+}
+
+void in_dropped_handler(AppMessageResult reason, void *ctx) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Message Dropped: %d", reason);
+}
+
+// Layer update callback which is called on render updates
 static void path_layer_update_callback(Layer *layer, GContext *ctx) {
 	// Getting the current time
 	time_t tempTime = time(NULL);
@@ -61,16 +173,18 @@ static void path_layer_update_callback(Layer *layer, GContext *ctx) {
 
 	gpath_rotate_to(s_line_path, (TRIG_MAX_ANGLE / 360) * s_path_angle);
 
-	graphics_context_set_stroke_color(ctx, GColorWhite);
-	graphics_context_set_fill_color(ctx, GColorBlack);
+	graphics_context_set_stroke_color(ctx, handBorderColor);
+	graphics_context_set_fill_color(ctx, handColor);
 	gpath_draw_filled(ctx, s_line_path);	
-	gpath_draw_outline(ctx, s_line_path);
+	if (handBorderToggle) {
+		gpath_draw_outline(ctx, s_line_path);
+	}
 }
 
 static void dot_layer_update_callback(Layer *layer, GContext *ctx) {
 		
-	graphics_context_set_stroke_color(ctx, GColorWhite);
-	graphics_context_set_fill_color(ctx, GColorWhite);
+	graphics_context_set_stroke_color(ctx, dotColor);
+	graphics_context_set_fill_color(ctx, dotColor);
 	
 	time_t tempTime = time(NULL);
 	struct tm * tick_time = localtime(&tempTime);
@@ -306,12 +420,12 @@ static void main_window_load(Window *window) {
 	char * buffer2S = buffer2+1;
 			
 	s_time_layer = text_layer_create(GRect(xPos, yPos, 50, 50));
-	text_layer_set_background_color(s_time_layer, GColorBlack);
-	text_layer_set_text_color(s_time_layer, GColorWhite);
+	text_layer_set_background_color(s_time_layer, backgroundColor);
+	text_layer_set_text_color(s_time_layer, hourColor);
 
 	s_time_layer2 = text_layer_create(GRect(xPos2, yPos2, 50, 50));
-	text_layer_set_background_color(s_time_layer2, GColorBlack);
-	text_layer_set_text_color(s_time_layer2, GColorWhite);
+	text_layer_set_background_color(s_time_layer2, backgroundColor);
+	text_layer_set_text_color(s_time_layer2, hourColor);
 	
 	if (currHour > 0 && currHour < 10) {
 		text_layer_set_text(s_time_layer, bufferS);
@@ -366,9 +480,58 @@ static void main_window_unload(Window *window) {
 static void init() {	
 	s_line_path = gpath_create(&LINE_PATH_POINTS);
 	
+	char * strBuffer = "blu";
+	
+	if (persist_exists(MK_BACKGROUND_COLOR)) {
+		persist_read_string(MK_BACKGROUND_COLOR, strBuffer, sizeof(strBuffer));
+		backgroundColor = getColor(strBuffer);
+	}
+	else {
+		backgroundColor = GColorBlack;
+	}
+	
+	if (persist_exists(MK_HOUR_COLOR)) {
+		persist_read_string(MK_HOUR_COLOR, strBuffer, sizeof(strBuffer));
+		hourColor = getColor(strBuffer);
+	}
+	else {
+		hourColor = GColorWhite;
+	}
+	
+	if (persist_exists(MK_HAND_COLOR)) {
+		persist_read_string(MK_HAND_COLOR, strBuffer, sizeof(strBuffer));
+		handColor = getColor(strBuffer);
+	}
+	else {
+		handColor = GColorWhite;
+	}
+	
+	if (persist_exists(MK_DOT_COLOR)) {
+		persist_read_string(MK_DOT_COLOR, strBuffer, sizeof(strBuffer));
+		dotColor = getColor(strBuffer);
+	}
+	else {
+		dotColor = GColorWhite;
+	}
+	
+	if (persist_exists(MK_HAND_OUTLINE_COLOR)) {
+		persist_read_string(MK_HAND_OUTLINE_COLOR, strBuffer, sizeof(strBuffer));
+		handBorderColor = getColor(strBuffer);
+	}
+	else {
+		handBorderColor = GColorWhite;
+	}
+	
+	if (persist_exists(MK_HAND_OUTLINE_BOOL)) {
+		handBorderToggle = persist_read_bool(MK_HAND_OUTLINE_BOOL);
+	}
+	else {
+		handBorderToggle = true;
+	}
+	
 	// Create Window
 	s_main_window = window_create();
-	window_set_background_color(s_main_window, GColorBlack);
+	window_set_background_color(s_main_window, backgroundColor);
 	window_set_window_handlers(s_main_window, (WindowHandlers) {
 		.load = main_window_load,
 		.unload = main_window_unload,
@@ -378,11 +541,24 @@ static void init() {
 	
 	// Pass the corresponding GPathInfo to initialize a GPath
 	tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+	app_message_register_inbox_received(in_received_handler);
+	app_message_register_inbox_dropped(in_dropped_handler);
+	app_message_open(128, 128);
+	
+	Layer * timeLayer = text_layer_get_layer(s_time_layer);
+	Layer * timeLayer2 = text_layer_get_layer(s_time_layer2);
+	layer_mark_dirty(timeLayer);
+	layer_mark_dirty(timeLayer2);
+	layer_mark_dirty(s_dot_layer);
+	layer_mark_dirty(s_path_layer);	
 }
 
 static void deinit() {
 	window_destroy(s_main_window);
 
+	app_message_deregister_callbacks();
+	tick_timer_service_unsubscribe();
+	
 	gpath_destroy(s_line_path);
 }
 
