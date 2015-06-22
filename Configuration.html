@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Configure Macro Clock</title>
+		<link rel="stylesheet" type="text/css" href="main.css" title="default" />
+		<link rel="icon" type="image/png" href="../resources/images/icon/icon.png" title="favicon" />
+		<script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+	</head>
+	
+	<body>
+		<div id="contentDiv" class = "container">
+			<h3 style="margin:0px">Macro Clock Configuration</h3>
+			<br />
+			<table>
+				<tr>
+					<td>Background Color:<br />
+						<select id="backgroundColor">
+							<option value="blk">Black</option>
+							<option value="wht">White</option>
+							<option value="red">Red</option>
+							<option value="org">Orange</option>
+							<option value="ylw">Yellow</option>
+							<option value="grn">Green</option>
+							<option value="blu">Blue</option>
+							<option value="prp">Purple</option>
+							<option value="pnk">Pink</option>
+							<option value="gry">Gray</option>
+						</select>
+					</td>
+					<td>
+						Hour Digit Color:<br />
+						<select id="hourColor">
+							<option value="blk">Black</option>
+							<option value="wht">White</option>
+							<option value="red">Red</option>
+							<option value="org">Orange</option>
+							<option value="ylw">Yellow</option>
+							<option value="grn">Green</option>
+							<option value="blu">Blue</option>
+							<option value="prp">Purple</option>
+							<option value="pnk">Pink</option>
+							<option value="gry">Gray</option>
+						</select>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						Clock Hand Color:<br />
+						<select id="handColor">
+							<option value="blk">Black</option>
+							<option value="wht">White</option>
+							<option value="red">Red</option>
+							<option value="org">Orange</option>
+							<option value="ylw">Yellow</option>
+							<option value="grn">Green</option>
+							<option value="blu">Blue</option>
+							<option value="prp">Purple</option>
+							<option value="pnk">Pink</option>
+							<option value="gry">Gray</option>
+						</select>
+					</td>
+					<td>
+						Dot Color:<br />
+						<select id="dotColor">
+							<option value="blk">Black</option>
+							<option value="wht">White</option>
+							<option value="red">Red</option>
+							<option value="org">Orange</option>
+							<option value="ylw">Yellow</option>
+							<option value="grn">Green</option>
+							<option value="blu">Blue</option>
+							<option value="prp">Purple</option>
+							<option value="pnk">Pink</option>
+							<option value="gry">Gray</option>
+						</select>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						Clock Hand Outline Color:<br />
+						<select id="handOutlineColor">
+							<option value="nob">No Border</option>
+							<option value="blk">Black</option>
+							<option value="wht">White</option>
+							<option value="red">Red</option>
+							<option value="org">Orange</option>
+							<option value="ylw">Yellow</option>
+							<option value="grn">Green</option>
+							<option value="blu">Blue</option>
+							<option value="prp">Purple</option>
+							<option value="pnk">Pink</option>
+							<option value="gry">Gray</option>
+						</select>
+					</td>
+				</tr>
+			</table>
+			<br />
+			<button type="submit" id="cancelButton" onclick = "cancelClick()">Cancel</button>
+			<button type="submit" id="submitButton">Submit</button>
+		</div>
+
+		<script>
+			function saveOptions() {
+				var options = {
+					'backgroundColor': $("#backgroundColor").val(),
+					'hourColor': $("#hourColor").val(),
+					'handColor': $("#handColor").val(),
+					'dotColor': $("#dotColor").val(),
+					'handOutlineColor': $("#handOutlineColor").val(),
+				}
+				return options;
+			}
+			<!-- from http://snipplr.com/view/26662/get-url-parameters-with-jquery--improved/ -->
+			$.urlParam = function(name){
+				var results = new RegExp('[\\?&]' + name + '=([^&#]*)').exec(			window.location.href);
+				if (!results) { return 0; }
+				return results[1] || 0;
+			}
+	  
+			function getDefaults() {
+				var backgroundColor = decodeURIComponent($.urlParam("backgroundColor"));
+				var hourColor = decodeURIComponent($.urlParam("hourColor"));
+				var handColor = decodeURIComponent($.urlParam("handColor"));
+				var dotColor = decodeURIComponent($.urlParam("dotColor"));
+				var handOutlineColor = decodeURIComponent($.urlParam("handOutlineColor"));
+
+				if (backgroundColor !== null) {
+					selectElement('backgroundColor', backgroundColor);
+				}
+				if (hourColor !== null) {
+					selectElement('hourColor', hourColor);
+				}
+				if (handColor !== null) {
+					selectElement('handColor', handColor);
+				}
+				if (dotColor !== null) {
+					selectElement('dotColor', dotColor);
+				}
+				if (handOutlineColor !== null) {
+					selectElement('handOutlineColor', handOutlineColor);
+				}
+			}
+			function selectElement(elementID, value) {
+				var element = document.getElementById(elementID);
+				element.value = value;
+			}
+			
+			$().ready(function() {
+				getDefaults();
+				$("#cancelButton").click(function() {
+					console.log("Cancel");
+					document.location = "pebblejs://close";
+				});
+
+				$("#submitButton").click(function() {
+					console.log("Submit");
+					var location = "pebblejs://close#" + encodeURIComponent(JSON.stringify(saveOptions()));
+					console.log("Warping to: " + location);
+					document.location = location;
+				});
+			});
+		</script>
+	</body>
+</html>
