@@ -84,13 +84,13 @@ static GColor getColor(char* colorString) {
 		return GColorYellow;
 	}
 	else if (strcmp(colorString, "grn") == 0) {
-		return GColorGreen;
+		return GColorDarkGreen;
 	}
-	else if (strcmp(colorString, "blu") == 0) {
-		return GColorBlue;
+	else if (strcmp(colorString, "ble") == 0) {
+		return GColorDukeBlue;
 	}
 	else if (strcmp(colorString, "prp") == 0) {
-		return GColorPurple;
+		return GColorImperialPurple;
 	}
 	else if (strcmp(colorString, "pnk") == 0) {
 		return GColorShockingPink;
@@ -100,6 +100,8 @@ static GColor getColor(char* colorString) {
 	}
 	else {
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "getColor received an invalid string: %s", colorString);
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "strcmp: %d", strcmp(colorString, "blu"));
+
 		return GColorWhite;
 	}
 }
