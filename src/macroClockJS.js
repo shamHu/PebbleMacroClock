@@ -8,13 +8,17 @@ function appMessageNack(e) {
 
 Pebble.addEventListener('showConfiguration', function(e) {
 	var options = JSON.parse(window.localStorage.getItem('macroClockOptions'));
-	var configLink = 'http://dustinhu.com/projects/library/MacroClock/Configuration.html';
+	var configLink = 'http://dustinhu.com/projects/library/MacroClock/ConfigurationBeta.html';
 	if (options !== null) {
 		configLink += '?&backgroundColor=' + encodeURIComponent(options['backgroundColor']) +
 			'&hourColor=' + encodeURIComponent(options['hourColor']) +
 			'&handColor=' + encodeURIComponent(options['handColor']) +
 			'&dotColor=' + encodeURIComponent(options['dotColor']) +
-			'&handOutlineColor=' + encodeURIComponent(options['handOutlineColor']);
+			'&handOutlineColor=' + encodeURIComponent(options['handOutlineColor']) + 
+			'&vibeToggle=' + encodeURIComponent(options['vibeToggle']) +
+			'&hourFormat=' + encodeURIComponent(options['hourFormat']) + 
+			'&vibeStartTime=' + encodeURIComponent(options['vibeStartTime']) +
+			'&vibeEndTime=' + encodeURIComponent(options['vibeEndTime']) 
 	}
 	console.log("opening " + configLink);
 	Pebble.openURL(configLink);

@@ -4,7 +4,11 @@
         "dotColor": 3,
         "handColor": 2,
         "handOutlineColor": 4,
-        "hourColor": 1
+        "hourColor": 1,
+        "hourFormat": 6,
+        "vibeEndTime": 8,
+        "vibeStartTime": 7,
+        "vibeToggle": 5
     },
     "capabilities": [
         "configurable"
@@ -20,7 +24,7 @@
     "targetPlatforms": [
         "basalt"
     ],
-    "uuid": "1e40b260-b1c2-4e46-90d1-20fc26173db3",
+    "uuid": "c97f1064-db4b-442a-8142-c37c04d3c04b",
     "versionLabel": "2.2",
     "watchapp": {
         "watchface": true

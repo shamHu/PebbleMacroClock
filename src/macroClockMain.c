@@ -27,7 +27,11 @@ enum MessageKeys {
 	MK_HAND_COLOR = 2,
 	MK_DOT_COLOR = 3,
 	MK_HAND_OUTLINE_COLOR = 4,
-	MK_HAND_OUTLINE_BOOL = 5
+	MK_HAND_OUTLINE_BOOL = 99,
+	MK_VIBE_TOGGLE = 5,
+	MK_HOUR_FORMAT = 6,
+	MK_VIBE_START = 7,
+	MK_VIBE_END = 8
 };
 
 const int midWidth = 47;
@@ -59,12 +63,37 @@ static GColor dotColor;
 static GColor hourColor;
 static bool handBorderToggle;
 
+static bool vibeToggle;
+static int vibeStartTime;
+static int vibeEndTime;
+
+static bool hourFormat;
+
 static double getCos(double angle) {		
 	return ( (double) cos_lookup(angle * TRIG_MAX_ANGLE / (2 * M_PI)) / (double) TRIG_MAX_RATIO);
 }
 
 static double getSin(double angle) {
 		return ( (double) sin_lookup(angle * TRIG_MAX_ANGLE / (2 * M_PI)) / (double) TRIG_MAX_RATIO);
+}
+
+static int getHourInt(char* hourString) {
+	int toReturn = hourString[1] - '0';
+	if (hourString[0] == '1') {
+		toReturn += 10;
+	}
+	
+	if (hourString[2] == 'p') {
+		toReturn += 12;
+	}
+	
+	if (toReturn >= 0 && toReturn <= 23) {
+		return toReturn;
+	}
+	else {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "getHourInt(char*) returned an invalid integer value");
+		return 0;
+	}
 }
 
 static GColor getColor(char* colorString) {
@@ -104,61 +133,6 @@ static GColor getColor(char* colorString) {
 
 		return GColorWhite;
 	}
-}
-
-static void in_received_handler(DictionaryIterator *received, void *ctx) {	
-	Tuple *currDictItem = dict_read_first(received);
-		
-	while (currDictItem) {		
-		if (currDictItem->key == MK_BACKGROUND_COLOR) {
-			backgroundColor = getColor(currDictItem->value->cstring);
-			persist_write_string(MK_BACKGROUND_COLOR, currDictItem->value->cstring);
-		} 
-		else if (currDictItem->key == MK_HOUR_COLOR) {
-			hourColor = getColor(currDictItem->value->cstring);
-			persist_write_string(MK_HOUR_COLOR, currDictItem->value->cstring);
-		}
-		else if (currDictItem->key == MK_HAND_COLOR) {
-			handColor = getColor(currDictItem->value->cstring);
-			persist_write_string(MK_HAND_COLOR, currDictItem->value->cstring);
-		}
-		else if (currDictItem->key == MK_DOT_COLOR) {
-			dotColor = getColor(currDictItem->value->cstring);
-			persist_write_string(MK_DOT_COLOR, currDictItem->value->cstring);
-		}
-		else if (currDictItem->key == MK_HAND_OUTLINE_COLOR) {
-			if (strcmp(currDictItem->value->cstring, "nob") == 0) {
-				handBorderColor = GColorBlack;
-				handBorderToggle = false;
-				persist_write_string(MK_HAND_OUTLINE_COLOR, "blk");
-				persist_write_bool(MK_HAND_OUTLINE_BOOL, handBorderToggle);
-			}
-			else {
-				handBorderColor = getColor(currDictItem->value->cstring);
-				handBorderToggle = true;
-				persist_write_string(MK_HAND_OUTLINE_COLOR, currDictItem->value->cstring);
-				persist_write_bool(MK_HAND_OUTLINE_BOOL, handBorderToggle);
-			}
-		}
-		else {
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "default!, %d", (int) currDictItem->key);
-		}
-		
-		currDictItem = dict_read_next(received);
-	}
-	
-	window_set_background_color(s_main_window, backgroundColor);
-	text_layer_set_background_color(s_time_layer, backgroundColor);
-	text_layer_set_background_color(s_time_layer2, backgroundColor);
-	text_layer_set_text_color(s_time_layer, hourColor);
-	text_layer_set_text_color(s_time_layer2, hourColor);
-	
-	Layer * timeLayer = text_layer_get_layer(s_time_layer);
-	Layer * timeLayer2 = text_layer_get_layer(s_time_layer2);
-	layer_mark_dirty(timeLayer);
-	layer_mark_dirty(timeLayer2);
-	layer_mark_dirty(s_dot_layer);
-	layer_mark_dirty(s_path_layer);	
 }
 
 void in_dropped_handler(AppMessageResult reason, void *ctx) {
@@ -291,7 +265,12 @@ static void update_time() {
 	char * buffer = "temp1";
 	char * buffer2 = "temp2";
 	
-	strftime(buffer, sizeof("00"), "%I", tick_time);
+	if (hourFormat) {
+		strftime(buffer, sizeof("00"), "%H", tick_time);
+	}
+	else {
+		strftime(buffer, sizeof("00"), "%I", tick_time);
+	}
 	
 	s_path_angle = (((tick_time->tm_hour % 12) * 60) + tick_time->tm_min) / 2;
 	s_path_angle_adj_rad = -(s_path_angle * M_PI / 180) + (M_PI / 2);
@@ -316,7 +295,12 @@ static void update_time() {
 		tick_time->tm_hour++;
 	}
 	
-	strftime(buffer2, sizeof("00"), "%I", tick_time);
+	if (hourFormat) {
+		strftime(buffer2, sizeof("00"), "%H", tick_time);
+	}
+	else {
+		strftime(buffer2, sizeof("00"), "%I", tick_time);
+	}
 				
 	double timeX = getCos(s_path_angle_adj_rad) * radius;	
 	double timeY = getSin(s_path_angle_adj_rad) * radius;
@@ -331,40 +315,159 @@ static void update_time() {
 	
 	int xPos2 = -(timeX - hourX2) + midWidth;
 	int yPos2 = -(hourY2 - timeY) + midHeight;
-	layer_set_frame(timeLayer, GRect(xPos,yPos,50,50));
-	layer_set_frame(timeLayer2, GRect(xPos2,yPos2,50,50));
+	
+	//xPos-5 and width=60 because "20" doesn't fit in 50x50 apparently.
+	layer_set_frame(timeLayer, GRect(xPos-5,yPos,60,50));
+	layer_set_frame(timeLayer2, GRect(xPos2-5,yPos2,60,50));
 		
 	char * bufferS = buffer+1;
 	char * buffer2S = buffer2+1;
-		
-	if (currHour > 0 && currHour < 10) {
-		text_layer_set_text(s_time_layer, bufferS);
-	}
-	else if (currHour > 12 && currHour < 22) {
-		text_layer_set_text(s_time_layer, bufferS);
+	
+	if (hourFormat) {
+		if (currHour > 9) {
+			text_layer_set_text(s_time_layer, buffer);
+			if (currHour == 23) {
+				text_layer_set_text(s_time_layer2, buffer2S);
+			}
+			else {
+				text_layer_set_text(s_time_layer2, buffer2);
+			}
+		}
+		else {
+			text_layer_set_text(s_time_layer, bufferS);
+			text_layer_set_text(s_time_layer2, buffer2S);
+		}
 	}
 	else {
-		text_layer_set_text(s_time_layer, buffer);
+		if (currHour > 0 && currHour < 10) {
+			text_layer_set_text(s_time_layer, bufferS);
+		}
+		else if (currHour > 12 && currHour < 22) {
+			text_layer_set_text(s_time_layer, bufferS);
+		}
+		else {
+			text_layer_set_text(s_time_layer, buffer);
+		}
+
+		if (currHour >= 0 && currHour < 9) {
+			text_layer_set_text(s_time_layer2, buffer2S);
+		}
+		else if (currHour >= 12 && currHour < 21) {
+			text_layer_set_text(s_time_layer2, buffer2S);
+		}
+		else {
+			text_layer_set_text(s_time_layer2, buffer2);
+		}
 	}
 	
-	if (currHour >= 0 && currHour < 9) {
-		text_layer_set_text(s_time_layer2, buffer2S);
-	}
-	else if (currHour >= 12 && currHour < 21) {
-		text_layer_set_text(s_time_layer2, buffer2S);
-	}
-	else {
-		text_layer_set_text(s_time_layer2, buffer2);
+	if (tick_time->tm_min == 0) {
+		if (vibeToggle) {
+			if (vibeEndTime < vibeStartTime) {
+				if (currHour >= vibeStartTime || currHour <= vibeEndTime) {
+					vibes_double_pulse();
+				}
+			}
+			else {	
+				if (currHour >= vibeStartTime && currHour <= vibeEndTime) {
+		    		vibes_double_pulse();
+				}
+			}
+		}
 	}
 	
 	layer_mark_dirty(timeLayer);
 	layer_mark_dirty(timeLayer2);
-		
+			
 	gpath_rotate_to(s_line_path, (TRIG_MAX_ANGLE / 360) * s_path_angle);
 	layer_mark_dirty(s_path_layer);	
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+	update_time();
+}
+
+static void in_received_handler(DictionaryIterator *received, void *ctx) {	
+	Tuple *currDictItem = dict_read_first(received);
+		
+	while (currDictItem) {		
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "currdictitem: %d", (int) currDictItem->key);
+		if (currDictItem->key == MK_BACKGROUND_COLOR) {
+			backgroundColor = getColor(currDictItem->value->cstring);
+			persist_write_string(MK_BACKGROUND_COLOR, currDictItem->value->cstring);
+		} 
+		else if (currDictItem->key == MK_HOUR_COLOR) {
+			hourColor = getColor(currDictItem->value->cstring);
+			persist_write_string(MK_HOUR_COLOR, currDictItem->value->cstring);
+		}
+		else if (currDictItem->key == MK_HAND_COLOR) {
+			handColor = getColor(currDictItem->value->cstring);
+			persist_write_string(MK_HAND_COLOR, currDictItem->value->cstring);
+		}
+		else if (currDictItem->key == MK_DOT_COLOR) {
+			dotColor = getColor(currDictItem->value->cstring);
+			persist_write_string(MK_DOT_COLOR, currDictItem->value->cstring);
+		}
+		else if (currDictItem->key == MK_HAND_OUTLINE_COLOR) {
+			if (strcmp(currDictItem->value->cstring, "nob") == 0) {
+				handBorderColor = GColorBlack;
+				handBorderToggle = false;
+				persist_write_string(MK_HAND_OUTLINE_COLOR, "blk");
+				persist_write_bool(MK_HAND_OUTLINE_BOOL, handBorderToggle);
+			}
+			else {
+				handBorderColor = getColor(currDictItem->value->cstring);
+				handBorderToggle = true;
+				persist_write_string(MK_HAND_OUTLINE_COLOR, currDictItem->value->cstring);
+				persist_write_bool(MK_HAND_OUTLINE_BOOL, handBorderToggle);
+			}
+		}
+		else if (currDictItem->key == MK_VIBE_TOGGLE) {
+			if (strcmp(currDictItem->value->cstring, "onn") == 0) {
+				vibeToggle = true;
+				persist_write_bool(MK_VIBE_TOGGLE, true);
+			}
+			else {
+				vibeToggle = false;
+				persist_write_bool(MK_VIBE_TOGGLE, false);
+			}
+		}
+		else if (currDictItem->key == MK_HOUR_FORMAT) {
+			if (strcmp(currDictItem->value->cstring, "24h") == 0) {
+				hourFormat = true;
+				persist_write_bool(MK_HOUR_FORMAT, true);
+			}
+			else {
+				hourFormat = false;
+				persist_write_bool(MK_HOUR_FORMAT, false);
+			}
+		}
+		else if (currDictItem->key == MK_VIBE_START) {
+			vibeStartTime = getHourInt(currDictItem->value->cstring);
+			persist_write_string(MK_VIBE_START, currDictItem->value->cstring);
+		}
+		else if (currDictItem->key == MK_VIBE_END) {
+			vibeEndTime = getHourInt(currDictItem->value->cstring);
+			persist_write_string(MK_VIBE_END, currDictItem->value->cstring);
+		}
+		else {
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "default!, %d", (int) currDictItem->key);
+		}
+		
+		currDictItem = dict_read_next(received);
+	}
+	
+	window_set_background_color(s_main_window, backgroundColor);
+	text_layer_set_background_color(s_time_layer, backgroundColor);
+	text_layer_set_background_color(s_time_layer2, backgroundColor);
+	text_layer_set_text_color(s_time_layer, hourColor);
+	text_layer_set_text_color(s_time_layer2, hourColor);
+	
+	Layer * timeLayer = text_layer_get_layer(s_time_layer);
+	Layer * timeLayer2 = text_layer_get_layer(s_time_layer2);
+	layer_mark_dirty(timeLayer);
+	layer_mark_dirty(timeLayer2);
+	layer_mark_dirty(s_dot_layer);
+	layer_mark_dirty(s_path_layer);	
 	update_time();
 }
 
@@ -376,7 +479,12 @@ static void main_window_load(Window *window) {
 	char * buffer = "temp1";
 	char * buffer2 = "temp2";
 	
-	strftime(buffer, sizeof("00"), "%I", tick_time);
+	if (hourFormat) {
+		strftime(buffer, sizeof("00"), "%H", tick_time);
+	}
+	else {
+		strftime(buffer, sizeof("00"), "%I", tick_time);
+	}
 	
 	s_path_angle = (((tick_time->tm_hour % 12) * 60) + tick_time->tm_min) / 2;
 	s_path_angle_adj_rad = -(s_path_angle * M_PI / 180) + (M_PI / 2);
@@ -401,7 +509,12 @@ static void main_window_load(Window *window) {
 		tick_time->tm_hour++;
 	}	
 		
-	strftime(buffer2, sizeof("00"), "%I", tick_time);
+	if (hourFormat) {
+		strftime(buffer2, sizeof("00"), "%H", tick_time);
+	}
+	else {
+		strftime(buffer2, sizeof("00"), "%I", tick_time);
+	}
 	
 	double timeX = getCos(s_path_angle_adj_rad) * radius;		
 	double timeY = getSin(s_path_angle_adj_rad) * radius;
@@ -421,32 +534,49 @@ static void main_window_load(Window *window) {
 	char * bufferS = buffer+1;
 	char * buffer2S = buffer2+1;
 			
-	s_time_layer = text_layer_create(GRect(xPos, yPos, 50, 50));
+	s_time_layer = text_layer_create(GRect(xPos-5, yPos, 60, 50));
 	text_layer_set_background_color(s_time_layer, backgroundColor);
 	text_layer_set_text_color(s_time_layer, hourColor);
 
-	s_time_layer2 = text_layer_create(GRect(xPos2, yPos2, 50, 50));
+	s_time_layer2 = text_layer_create(GRect(xPos2-5, yPos2, 60, 50));
 	text_layer_set_background_color(s_time_layer2, backgroundColor);
 	text_layer_set_text_color(s_time_layer2, hourColor);
 	
-	if (currHour > 0 && currHour < 10) {
-		text_layer_set_text(s_time_layer, bufferS);
-	}
-	else if (currHour > 12 && currHour < 23) {
-		text_layer_set_text(s_time_layer, bufferS);
+	if (hourFormat) {
+		if (currHour > 9) {
+			text_layer_set_text(s_time_layer, buffer);
+			if (tick_time->tm_hour == 0) {
+				text_layer_set_text(s_time_layer2, buffer2S);
+			}
+			else {
+				text_layer_set_text(s_time_layer2, buffer2);
+			}
+		}
+		else {
+			text_layer_set_text(s_time_layer, bufferS);
+			text_layer_set_text(s_time_layer2, buffer2S);
+		}
 	}
 	else {
-		text_layer_set_text(s_time_layer, buffer);
-	}
-	
-	if (currHour >= 0 && currHour < 9) {
-		text_layer_set_text(s_time_layer2, buffer2S);
-	}
-	else if (currHour >= 12 && currHour < 22) {
-		text_layer_set_text(s_time_layer2, buffer2S);
-	}
-	else {
-		text_layer_set_text(s_time_layer2, buffer2);
+		if (currHour > 0 && currHour < 10) {
+			text_layer_set_text(s_time_layer, bufferS);
+		}
+		else if (currHour > 12 && currHour < 22) {
+			text_layer_set_text(s_time_layer, bufferS);
+		}
+		else {
+			text_layer_set_text(s_time_layer, buffer);
+		}
+
+		if (currHour >= 0 && currHour < 9) {
+			text_layer_set_text(s_time_layer2, buffer2S);
+		}
+		else if (currHour >= 12 && currHour < 21) {
+			text_layer_set_text(s_time_layer2, buffer2S);
+		}
+		else {
+			text_layer_set_text(s_time_layer2, buffer2);
+		}
 	}
 		
 	Layer *window_layer = window_get_root_layer(window);
@@ -531,6 +661,36 @@ static void init() {
 		handBorderToggle = true;
 	}
 	
+	if (persist_exists(MK_VIBE_TOGGLE)) {
+		vibeToggle = persist_read_bool(MK_VIBE_TOGGLE);
+	}
+	else {
+		vibeToggle = false;
+	}
+	
+	if (persist_exists(MK_HOUR_FORMAT)) {
+		hourFormat = persist_read_bool(MK_HOUR_FORMAT);
+	}
+	else {
+		hourFormat = false;
+	}
+	
+	if (persist_exists(MK_VIBE_START)) {
+		persist_read_string(MK_VIBE_START, strBuffer, sizeof(strBuffer));
+		vibeStartTime = getHourInt(strBuffer);
+	}
+	else {
+		vibeStartTime = 8;
+	}
+	
+	if (persist_exists(MK_VIBE_END)) {
+		persist_read_string(MK_VIBE_END, strBuffer, sizeof(strBuffer));
+		vibeEndTime = getHourInt(strBuffer);
+	}
+	else {
+		vibeEndTime = 23;
+	}
+	
 	// Create Window
 	s_main_window = window_create();
 	window_set_background_color(s_main_window, backgroundColor);
@@ -553,6 +713,7 @@ static void init() {
 	layer_mark_dirty(timeLayer2);
 	layer_mark_dirty(s_dot_layer);
 	layer_mark_dirty(s_path_layer);	
+	
 }
 
 static void deinit() {
