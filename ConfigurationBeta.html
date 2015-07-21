@@ -14,7 +14,8 @@
 			<br />
 			<table>
 				<tr>
-					<td>Background Color:<br />
+					<td style="border-right: 1px solid gray">
+						Background Color:<br />
 						<select id="backgroundColor">
 							<option value="blk">Black</option>
 							<option value="wht">White</option>
@@ -45,7 +46,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td>
+					<td style="border-right: 1px solid gray">
 						Clock Hand Color:<br />
 						<select id="handColor">
 							<option value="blk">Black</option>
@@ -77,7 +78,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td>
+					<td style="border-right: 1px solid gray">
 						Clock Hand Outline Color:<br />
 						<select id="handOutlineColor">
 							<option value="nob">No Border</option>
@@ -93,8 +94,84 @@
 							<option value="gry">Gray</option>
 						</select>
 					</td>
+					<td>
+						Digit Format:<br />
+						<select id="hourFormat">
+							<option value="12h">12 Hour</option>
+							<option value="24h">24 Hour</option>
+						</select>
+					</td>
 				</tr>
-			</table> <br />
+				<tr>
+					<td style="border-right: 1px solid gray">
+						Hourly Vibration:<br />
+						<select id="vibeToggle">
+							<option value="onn">On</option>
+							<option value="off">Off</option>
+						</select>
+					</td>
+				</tr>
+				<tr>
+					<td style="border-right: 1px solid gray">
+						Hourly Vibration Start Time:<br />
+						<select id="vibeStartTime">
+							<option value="00a">Midnight</option>
+							<option value="01a">1:00am</option>
+							<option value="02a">2:00am</option>
+							<option value="03a">3:00am</option>
+							<option value="04a">4:00am</option>
+							<option value="05a">5:00am</option>
+							<option value="06a">6:00am</option>
+							<option value="07a">7:00am</option>
+							<option value="08a">8:00am</option>
+							<option value="09a">9:00am</option>
+							<option value="10a">10:00am</option>
+							<option value="11a">11:00am</option>
+							<option value="12a">Noon</option>
+							<option value="01p">1:00pm</option>
+							<option value="02p">2:00pm</option>
+							<option value="03p">3:00pm</option>
+							<option value="04p">4:00pm</option>
+							<option value="05p">5:00pm</option>
+							<option value="06p">6:00pm</option>
+							<option value="07p">7:00pm</option>
+							<option value="08p">8:00pm</option>
+							<option value="09p">9:00pm</option>
+							<option value="10p">10:00pm</option>
+							<option value="11p">11:00pm</option>
+						</select>
+					</td>
+					<td>
+						Hourly Vibration End Time:<br />
+						<select id="vibeEndTime">
+							<option value="00a">Midnight</option>
+							<option value="01a">1:00am</option>
+							<option value="02a">2:00am</option>
+							<option value="03a">3:00am</option>
+							<option value="04a">4:00am</option>
+							<option value="05a">5:00am</option>
+							<option value="06a">6:00am</option>
+							<option value="07a">7:00am</option>
+							<option value="08a">8:00am</option>
+							<option value="09a">9:00am</option>
+							<option value="10a">10:00am</option>
+							<option value="11a">11:00am</option>
+							<option value="12a">Noon</option>
+							<option value="01p">1:00pm</option>
+							<option value="02p">2:00pm</option>
+							<option value="03p">3:00pm</option>
+							<option value="04p">4:00pm</option>
+							<option value="05p">5:00pm</option>
+							<option value="06p">6:00pm</option>
+							<option value="07p">7:00pm</option>
+							<option value="08p">8:00pm</option>
+							<option value="09p">9:00pm</option>
+							<option value="10p">10:00pm</option>
+							<option value="11p">11:00pm</option>
+						</select>
+					</td>
+				</tr>
+			</table>
 			<br />
 			<button type="submit" id="cancelButton" onclick = "cancelClick()">Cancel</button>
 			<button type="submit" id="submitButton">Submit</button>
@@ -107,7 +184,11 @@
 					'hourColor': $("#hourColor").val(),
 					'handColor': $("#handColor").val(),
 					'dotColor': $("#dotColor").val(),
-					'handOutlineColor': $("#handOutlineColor").val()
+					'handOutlineColor': $("#handOutlineColor").val(),
+					'vibeToggle': $("#vibeToggle").val(),
+					'hourFormat': $("#hourFormat").val(),
+					'vibeStartTime': $("#vibeStartTime").val(),
+					'vibeEndTime': $("#vibeEndTime").val()
 				}
 				return options;
 			}
@@ -124,7 +205,10 @@
 				var handColor = decodeURIComponent($.urlParam("handColor"));
 				var dotColor = decodeURIComponent($.urlParam("dotColor"));
 				var handOutlineColor = decodeURIComponent($.urlParam("handOutlineColor"));
-				
+				var vibeToggle = decodeURIComponent($.urlParam("vibeToggle"));
+				var hourFormat = decodeURIComponent($.urlParam("hourFormat"));
+				var vibeStartTime = decodeURIComponent($.urlParam("vibeStartTime"));
+				var vibeEndTime = decodeURIComponent($.urlParam("vibeEndTime"));
 				if (backgroundColor.length == 3) {
 					selectElement('backgroundColor', backgroundColor);
 				}
@@ -154,6 +238,30 @@
 				}
 				else {
 					selectElement('handOutlineColor', 'blk');
+				}
+				if (vibeToggle.length == 3) {
+					selectElement('vibeToggle', vibeToggle);
+				}
+				else {
+					selectElement('vibeToggle', 'off');
+				}
+				if (hourFormat.length == 3) {
+					selectElement('hourFormat', hourFormat);
+				}
+				else {
+					selectElement('hourFormat', '12h');
+				}
+				if (vibeStartTime.length == 3) {
+					selectElement('vibeStartTime', vibeStartTime);
+				}
+				else {
+					selectElement('vibeStartTime', '08a');
+				}
+				if (vibeEndTime.length == 3) {
+					selectElement('vibeEndTime', vibeEndTime);
+				}
+				else {
+					selectElement('vibeEndTime', '11p');
 				}
 			}
 			function selectElement(elementID, value) {
