@@ -18,7 +18,10 @@ Pebble.addEventListener('showConfiguration', function(e) {
 			'&vibeToggle=' + encodeURIComponent(options['vibeToggle']) +
 			'&hourFormat=' + encodeURIComponent(options['hourFormat']) + 
 			'&vibeStartTime=' + encodeURIComponent(options['vibeStartTime']) +
-			'&vibeEndTime=' + encodeURIComponent(options['vibeEndTime']) 
+			'&vibeEndTime=' + encodeURIComponent(options['vibeEndTime']) + 
+			'&dateToggle=' + encodeURIComponent(options['dateToggle']) + 
+			'&digTimeToggle=' + encodeURIComponent(options['digTimeToggle']) +
+			'&btAlertToggle=' + encodeURIComponent(options['btAlertToggle'])
 	}
 	console.log("opening " + configLink);
 	Pebble.openURL(configLink);

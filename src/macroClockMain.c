@@ -21,6 +21,22 @@ static const GPathInfo LINE_PATH_POINTS = {
   }
 };
 
+static const GPathInfo TOP_LINE_POINTS = {
+	2,
+	(GPoint []) {
+		{0, 24},
+		{144, 24}
+	}
+};
+
+static const GPathInfo BOT_LINE_POINTS = {
+	2,
+	(GPoint []) {
+		{0, 143},
+		{144, 143}
+	}
+};
+
 enum MessageKeys {
 	MK_BACKGROUND_COLOR = 0,
 	MK_HOUR_COLOR = 1,
@@ -31,7 +47,16 @@ enum MessageKeys {
 	MK_VIBE_TOGGLE = 5,
 	MK_HOUR_FORMAT = 6,
 	MK_VIBE_START = 7,
-	MK_VIBE_END = 8
+	MK_VIBE_END = 8,
+	MK_DATE_TOGGLE = 9,
+	MK_DIG_TIME_TOGGLE = 10,
+	MK_BT_ALERT_TOGGLE = 11
+};
+
+enum DateToggle {
+	DT_OFF = 0,
+	DT_FLICK = 1,
+	DT_ALWAYS_ON = 2
 };
 
 const int midWidth = 47;
@@ -45,16 +70,34 @@ static Window *s_main_window;
 
 static TextLayer * s_time_layer;
 static TextLayer * s_time_layer2;
+static TextLayer * s_date_layer;
+static TextLayer * s_date_layer2;
 
-static Layer *s_path_layer;
-static GPath *s_line_path;
+static Layer * s_path_layer;
+static GPath * s_line_path;
 
-static Layer *s_dot_layer;
+static Layer * topPathLayer;
+static GPath * topLinePath;
+
+static Layer * botPathLayer;
+static GPath * botLinePath;
+	
+static Layer * timeLayer;
+static Layer * timeLayer2;
+static Layer * dateLayer;
+static Layer * dateLayer2;
+
+static Layer * s_dot_layer;
 
 static int s_path_angle;
 static double s_path_angle_adj_rad;
 static int s_hour_angle;
 static double s_hour_angle_adj_rad;
+
+static char buffer[2];
+static char buffer2[2];
+static char dateBuffer[16];
+static char dateBuffer2[8];
 
 static GColor backgroundColor;
 static GColor handColor;
@@ -69,12 +112,86 @@ static int vibeEndTime;
 
 static bool hourFormat;
 
+static int dateToggle; //0 = Off, 1 = Flick, 2 = Always On
+static int digTimeToggle;
+
+static bool btAlertToggle;
+
 static double getCos(double angle) {		
 	return ( (double) cos_lookup(angle * TRIG_MAX_ANGLE / (2 * M_PI)) / (double) TRIG_MAX_RATIO);
 }
 
 static double getSin(double angle) {
-		return ( (double) sin_lookup(angle * TRIG_MAX_ANGLE / (2 * M_PI)) / (double) TRIG_MAX_RATIO);
+	return ( (double) sin_lookup(angle * TRIG_MAX_ANGLE / (2 * M_PI)) / (double) TRIG_MAX_RATIO);
+}
+
+static char* getDay(int dayInt) {
+	if (dayInt == 0) {
+		return "Sun";
+	}
+	else if (dayInt == 1) {
+		return "Mon";
+	}
+	else if (dayInt == 2) {
+		return "Tue";
+	}
+	else if (dayInt == 3) {
+		return "Wed";
+	}
+	else if (dayInt == 4) {
+		return "Thu";
+	}
+	else if (dayInt == 5) {
+		return "Fri";
+	}
+	else if (dayInt == 6) {
+		return "Sat";
+	}
+	else {
+		return "Err";
+	}
+}
+
+static char* getMonth(int monthInt) {
+	if (monthInt == 0) {
+		return "Jan";
+	}
+	else if (monthInt == 1) {
+		return "Feb";
+	}
+	else if (monthInt == 2) {
+		return "Mar";
+	}
+	else if (monthInt == 3) {
+		return "Apr";
+	}
+	else if (monthInt == 4) {
+		return "May";
+	}
+	else if (monthInt == 5) {
+		return "Jun";
+	}
+	else if (monthInt == 6) {
+		return "Jul";
+	}
+	else if (monthInt == 7) {
+		return "Aug";
+	}
+	else if (monthInt == 8) {
+		return "Sep";
+	}
+	else if (monthInt == 9) {
+		return "Oct";
+	}
+	else if (monthInt == 10) {
+		return "Nov";
+	}
+	else if (monthInt == 11) {
+		return "Dec";
+	}
+	else {
+		return "Err";
+	}
 }
 
 static int getHourInt(char* hourString) {
@@ -94,6 +211,23 @@ static int getHourInt(char* hourString) {
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "getHourInt(char*) returned an invalid integer value");
 		return 0;
 	}
+}
+
+static int getToggleInt(char* intString) {
+	if (intString[0] == '0') {
+		return 0;
+	}
+	else if (intString[0] == '1') {
+		return 1;
+	}
+	else if (intString[0] == '2') {
+		return 2;
+	}
+	else {
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "getToggleInt() returned invalid value: %s", intString);
+		return -1;
+	}
+		
 }
 
 static GColor getColor(char* colorString) {
@@ -137,6 +271,16 @@ static GColor getColor(char* colorString) {
 
 void in_dropped_handler(AppMessageResult reason, void *ctx) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Message Dropped: %d", reason);
+}
+
+static void top_line_layer_update_callback(Layer *layer, GContext *ctx) {
+	graphics_context_set_stroke_color(ctx, dotColor);
+	gpath_draw_outline(ctx, topLinePath);
+}
+
+static void bot_line_layer_update_callback(Layer *layer, GContext *ctx) {
+	graphics_context_set_stroke_color(ctx, dotColor);
+	gpath_draw_outline(ctx, botLinePath);
 }
 
 // Layer update callback which is called on render updates
@@ -259,19 +403,17 @@ static void update_time() {
 	struct tm * tick_time = localtime(&tempTime);
 	int currHour = tick_time->tm_hour;
 	
-	Layer * timeLayer = text_layer_get_layer(s_time_layer);
-	Layer * timeLayer2 = text_layer_get_layer(s_time_layer2);
-	
-	char * buffer = "temp1";
-	char * buffer2 = "temp2";
-	
+	strftime(dateBuffer, sizeof(dateBuffer), "%a, %b %e", tick_time);
+		
 	if (hourFormat) {
 		strftime(buffer, sizeof("00"), "%H", tick_time);
+		strftime(dateBuffer2, sizeof("00:00"), "%H:%M", tick_time);
 	}
 	else {
 		strftime(buffer, sizeof("00"), "%I", tick_time);
+		strftime(dateBuffer2, sizeof("00:00 XX"), "%I:%M %p", tick_time);
 	}
-	
+		
 	s_path_angle = (((tick_time->tm_hour % 12) * 60) + tick_time->tm_min) / 2;
 	s_path_angle_adj_rad = -(s_path_angle * M_PI / 180) + (M_PI / 2);
 	
@@ -335,7 +477,13 @@ static void update_time() {
 		}
 		else {
 			text_layer_set_text(s_time_layer, bufferS);
-			text_layer_set_text(s_time_layer2, buffer2S);
+			
+			if (currHour == 9) {
+				text_layer_set_text(s_time_layer2, buffer2);
+			}
+			else {
+				text_layer_set_text(s_time_layer2, buffer2S);
+			}
 		}
 	}
 	else {
@@ -375,8 +523,13 @@ static void update_time() {
 		}
 	}
 	
+	text_layer_set_text(s_date_layer, dateBuffer);
+	text_layer_set_text(s_date_layer2, dateBuffer2);
+	
 	layer_mark_dirty(timeLayer);
 	layer_mark_dirty(timeLayer2);
+	layer_mark_dirty(dateLayer);
+	layer_mark_dirty(dateLayer2);
 			
 	gpath_rotate_to(s_line_path, (TRIG_MAX_ANGLE / 360) * s_path_angle);
 	layer_mark_dirty(s_path_layer);	
@@ -386,11 +539,39 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 	update_time();
 }
 
+static void hideDate(void *data) {
+	layer_set_hidden(data, true);
+}
+
+
+static void tap_handler(AccelAxisType axis, int32_t direction) {
+	if (dateToggle == DT_FLICK) {
+		layer_set_hidden(dateLayer, false);
+		layer_set_hidden(topPathLayer, false);
+		app_timer_register(3500, hideDate, dateLayer);
+		app_timer_register(3500, hideDate, topPathLayer);
+	}
+	
+	if (digTimeToggle == DT_FLICK) {
+		layer_set_hidden(dateLayer2, false);
+		layer_set_hidden(botPathLayer, false);
+		app_timer_register(3500, hideDate, dateLayer2);	
+		app_timer_register(3500, hideDate, botPathLayer);
+	}	
+}
+
+static void bt_handler(bool connected) {
+	if (btAlertToggle) {
+		if (!connected) {
+			vibes_long_pulse();
+		}
+	}
+}
+
 static void in_received_handler(DictionaryIterator *received, void *ctx) {	
 	Tuple *currDictItem = dict_read_first(received);
 		
 	while (currDictItem) {		
-			APP_LOG(APP_LOG_LEVEL_DEBUG, "currdictitem: %d", (int) currDictItem->key);
 		if (currDictItem->key == MK_BACKGROUND_COLOR) {
 			backgroundColor = getColor(currDictItem->value->cstring);
 			persist_write_string(MK_BACKGROUND_COLOR, currDictItem->value->cstring);
@@ -449,6 +630,24 @@ static void in_received_handler(DictionaryIterator *received, void *ctx) {
 			vibeEndTime = getHourInt(currDictItem->value->cstring);
 			persist_write_string(MK_VIBE_END, currDictItem->value->cstring);
 		}
+		else if (currDictItem->key == MK_DATE_TOGGLE) {
+			dateToggle = getToggleInt(currDictItem->value->cstring);
+			persist_write_int(MK_DATE_TOGGLE, dateToggle);
+		}
+		else if (currDictItem->key == MK_DIG_TIME_TOGGLE) {
+			digTimeToggle = getToggleInt(currDictItem->value->cstring);
+			persist_write_int(MK_DIG_TIME_TOGGLE, digTimeToggle);
+		}
+		else if (currDictItem->key == MK_BT_ALERT_TOGGLE) {
+			if (strcmp(currDictItem->value->cstring, "onn") == 0) {
+				btAlertToggle = true;
+				persist_write_bool(MK_BT_ALERT_TOGGLE, true);
+			}
+			else {
+				btAlertToggle = false;
+				persist_write_bool(MK_BT_ALERT_TOGGLE, false);
+			}
+		}
 		else {
 			APP_LOG(APP_LOG_LEVEL_DEBUG, "default!, %d", (int) currDictItem->key);
 		}
@@ -456,18 +655,42 @@ static void in_received_handler(DictionaryIterator *received, void *ctx) {
 		currDictItem = dict_read_next(received);
 	}
 	
+	if (dateToggle == DT_ALWAYS_ON) {
+		layer_set_hidden(dateLayer, false);
+		layer_set_hidden(topPathLayer, false);
+	}
+	else {
+		layer_set_hidden(dateLayer, true);
+		layer_set_hidden(topPathLayer, true);
+	}
+		
+	if (digTimeToggle == DT_ALWAYS_ON) {
+		layer_set_hidden(dateLayer2, false);
+		layer_set_hidden(botPathLayer, false);
+	}
+	else {
+		layer_set_hidden(dateLayer2, true);
+		layer_set_hidden(botPathLayer, true);
+	}
+	
 	window_set_background_color(s_main_window, backgroundColor);
 	text_layer_set_background_color(s_time_layer, backgroundColor);
 	text_layer_set_background_color(s_time_layer2, backgroundColor);
+	text_layer_set_background_color(s_date_layer, backgroundColor);
+	text_layer_set_background_color(s_date_layer2, backgroundColor);
+	text_layer_set_text_color(s_date_layer, hourColor);
+	text_layer_set_text_color(s_date_layer2, hourColor);
 	text_layer_set_text_color(s_time_layer, hourColor);
 	text_layer_set_text_color(s_time_layer2, hourColor);
 	
-	Layer * timeLayer = text_layer_get_layer(s_time_layer);
-	Layer * timeLayer2 = text_layer_get_layer(s_time_layer2);
 	layer_mark_dirty(timeLayer);
 	layer_mark_dirty(timeLayer2);
 	layer_mark_dirty(s_dot_layer);
 	layer_mark_dirty(s_path_layer);	
+	layer_mark_dirty(dateLayer);
+	layer_mark_dirty(dateLayer2);
+	layer_mark_dirty(topPathLayer);
+	layer_mark_dirty(botPathLayer);
 	update_time();
 }
 
@@ -476,14 +699,15 @@ static void main_window_load(Window *window) {
 	struct tm * tick_time = localtime(&tempTime);
 	int currHour = tick_time->tm_hour;
 	
-	char * buffer = "temp1";
-	char * buffer2 = "temp2";
-	
+	strftime(dateBuffer, sizeof(dateBuffer), "%a, %b %e", tick_time);
+		
 	if (hourFormat) {
 		strftime(buffer, sizeof("00"), "%H", tick_time);
+		strftime(dateBuffer2, sizeof("00:00"), "%H:%M", tick_time);
 	}
 	else {
 		strftime(buffer, sizeof("00"), "%I", tick_time);
+		strftime(dateBuffer2, sizeof("00:00 XX"), "%I:%M %p", tick_time);
 	}
 	
 	s_path_angle = (((tick_time->tm_hour % 12) * 60) + tick_time->tm_min) / 2;
@@ -542,6 +766,17 @@ static void main_window_load(Window *window) {
 	text_layer_set_background_color(s_time_layer2, backgroundColor);
 	text_layer_set_text_color(s_time_layer2, hourColor);
 	
+	s_date_layer = text_layer_create(GRect(0, 0, 144, 24));
+	text_layer_set_background_color(s_date_layer, backgroundColor);
+	text_layer_set_text_color(s_date_layer, hourColor);
+	text_layer_set_text(s_date_layer, dateBuffer);
+	
+	s_date_layer2 = text_layer_create(GRect(0, 144, 144, 24));
+	text_layer_set_background_color(s_date_layer2, backgroundColor);
+	text_layer_set_text_color(s_date_layer2, hourColor);
+	text_layer_set_text(s_date_layer2, dateBuffer2);
+
+		
 	if (hourFormat) {
 		if (currHour > 9) {
 			text_layer_set_text(s_time_layer, buffer);
@@ -554,7 +789,13 @@ static void main_window_load(Window *window) {
 		}
 		else {
 			text_layer_set_text(s_time_layer, bufferS);
-			text_layer_set_text(s_time_layer2, buffer2S);
+			
+			if (currHour == 9) {
+				text_layer_set_text(s_time_layer2, buffer2);
+			}
+			else {
+				text_layer_set_text(s_time_layer2, buffer2S);
+			}
 		}
 	}
 	else {
@@ -578,7 +819,7 @@ static void main_window_load(Window *window) {
 			text_layer_set_text(s_time_layer2, buffer2);
 		}
 	}
-		
+			
 	Layer *window_layer = window_get_root_layer(window);
 	GRect bounds = layer_get_frame(window_layer);
 	
@@ -588,31 +829,58 @@ static void main_window_load(Window *window) {
 	text_layer_set_font(s_time_layer2, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
 	text_layer_set_text_alignment(s_time_layer2, GTextAlignmentCenter);
 	
+	text_layer_set_font(s_date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+	text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
+	
+	text_layer_set_font(s_date_layer2, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+	text_layer_set_text_alignment(s_date_layer2, GTextAlignmentCenter);
+	
 	s_dot_layer = layer_create(bounds);
 	layer_set_update_proc(s_dot_layer, dot_layer_update_callback);
 	
 	s_path_layer = layer_create(bounds);
 	layer_set_update_proc(s_path_layer, path_layer_update_callback);
 	
+	topPathLayer = layer_create(bounds);
+	layer_set_update_proc(topPathLayer, top_line_layer_update_callback);
+	
+	botPathLayer = layer_create(bounds);
+	layer_set_update_proc(botPathLayer, bot_line_layer_update_callback);
+	
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));		
-	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer2));	
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer2));
+	
 	layer_add_child(window_layer, s_dot_layer);
-	layer_add_child(window_layer, s_path_layer);	
-				
+	layer_add_child(window_layer, s_path_layer);
+	
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_date_layer));
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_date_layer2));
+	
+	
+	layer_add_child(window_layer, topPathLayer);
+	layer_add_child(window_layer, botPathLayer);
+	
 	// Move all paths to the center of the screen
 	gpath_move_to(s_line_path, GPoint(bounds.size.w/2, bounds.size.h/2));
-	
 }
 
 static void main_window_unload(Window *window) {
 	layer_destroy(s_path_layer);
 	layer_destroy(s_dot_layer);
+	layer_destroy(topPathLayer);
+	layer_destroy(botPathLayer);
+	layer_destroy(timeLayer);
+	layer_destroy(timeLayer2);
+	layer_destroy(dateLayer);
+	layer_destroy(dateLayer2);
 }
 
 static void init() {	
 	s_line_path = gpath_create(&LINE_PATH_POINTS);
+	topLinePath = gpath_create(&TOP_LINE_POINTS);
+	botLinePath = gpath_create(&BOT_LINE_POINTS);
 	
-	char * strBuffer = "blu";
+	char * strBuffer = "000";
 	
 	if (persist_exists(MK_BACKGROUND_COLOR)) {
 		persist_read_string(MK_BACKGROUND_COLOR, strBuffer, sizeof(strBuffer));
@@ -691,6 +959,27 @@ static void init() {
 		vibeEndTime = 23;
 	}
 	
+	if (persist_exists(MK_DATE_TOGGLE)) {
+		dateToggle = persist_read_int(MK_DATE_TOGGLE);
+	}
+	else {
+		dateToggle = 1;
+	}
+	
+	if (persist_exists(MK_DIG_TIME_TOGGLE)) {
+		digTimeToggle = persist_read_int(MK_DIG_TIME_TOGGLE);
+	}
+	else {
+		digTimeToggle = 1;
+	}
+	
+	if (persist_exists(MK_BT_ALERT_TOGGLE)) {
+		btAlertToggle = persist_read_bool(MK_BT_ALERT_TOGGLE);
+	}
+	else {
+		btAlertToggle = false;
+	}
+	
 	// Create Window
 	s_main_window = window_create();
 	window_set_background_color(s_main_window, backgroundColor);
@@ -707,12 +996,43 @@ static void init() {
 	app_message_register_inbox_dropped(in_dropped_handler);
 	app_message_open(128, 128);
 	
-	Layer * timeLayer = text_layer_get_layer(s_time_layer);
-	Layer * timeLayer2 = text_layer_get_layer(s_time_layer2);
+	timeLayer = text_layer_get_layer(s_time_layer);
+	timeLayer2 = text_layer_get_layer(s_time_layer2);
+	dateLayer = text_layer_get_layer(s_date_layer);
+	dateLayer2 = text_layer_get_layer(s_date_layer2);
+	
+	if (dateToggle == DT_ALWAYS_ON) {
+		layer_set_hidden(dateLayer, false);
+		layer_set_hidden(topPathLayer, false);
+	}
+	else {
+		layer_set_hidden(dateLayer, true);
+		layer_set_hidden(topPathLayer, true);
+	}
+		
+	if (digTimeToggle == DT_ALWAYS_ON) {
+		layer_set_hidden(dateLayer2, false);
+		layer_set_hidden(botPathLayer, false);
+	}
+	else {
+		layer_set_hidden(dateLayer2, true);
+		layer_set_hidden(botPathLayer, true);
+	}
+	
+	layer_insert_above_sibling(topPathLayer, dateLayer);
+	layer_insert_above_sibling(botPathLayer, dateLayer2);
+	
 	layer_mark_dirty(timeLayer);
 	layer_mark_dirty(timeLayer2);
 	layer_mark_dirty(s_dot_layer);
 	layer_mark_dirty(s_path_layer);	
+	layer_mark_dirty(topPathLayer);
+	layer_mark_dirty(botPathLayer);
+	layer_mark_dirty(dateLayer);
+	layer_mark_dirty(dateLayer2);
+	
+	accel_tap_service_subscribe(tap_handler);
+	bluetooth_connection_service_subscribe(bt_handler);
 	
 }
 
@@ -721,8 +1041,12 @@ static void deinit() {
 
 	app_message_deregister_callbacks();
 	tick_timer_service_unsubscribe();
+	accel_tap_service_unsubscribe();
+	bluetooth_connection_service_unsubscribe();
 	
 	gpath_destroy(s_line_path);
+	gpath_destroy(topLinePath);
+	gpath_destroy(botLinePath);
 }
 
 int main(void) {
