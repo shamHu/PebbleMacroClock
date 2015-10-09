@@ -8,7 +8,7 @@ function appMessageNack(e) {
 
 Pebble.addEventListener('showConfiguration', function(e) {
 	var options = JSON.parse(window.localStorage.getItem('macroClockOptions'));
-	var configLink = 'http://dustinhu.com/projects/library/MacroClock/ConfigurationBeta.html';
+	var configLink = 'http://dustinhu.com/projects/library/MacroClock/Configuration.html';
 	if (options !== null) {
 		configLink += '?&backgroundColor=' + encodeURIComponent(options['backgroundColor']) +
 			'&hourColor=' + encodeURIComponent(options['hourColor']) +
