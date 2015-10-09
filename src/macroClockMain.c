@@ -411,7 +411,7 @@ static void update_time() {
 	}
 	else {
 		strftime(buffer, sizeof("00"), "%I", tick_time);
-		strftime(dateBuffer2, sizeof("00:00 XX"), "%I:%M %p", tick_time);
+		strftime(dateBuffer2, sizeof("00:00 XX"), "%l:%M %p", tick_time);
 	}
 		
 	s_path_angle = (((tick_time->tm_hour % 12) * 60) + tick_time->tm_min) / 2;
