@@ -43,14 +43,14 @@ enum MessageKeys {
 	MK_HAND_COLOR = 2,
 	MK_DOT_COLOR = 3,
 	MK_HAND_OUTLINE_COLOR = 4,
-	MK_HAND_OUTLINE_BOOL = 99,
 	MK_VIBE_TOGGLE = 5,
 	MK_HOUR_FORMAT = 6,
 	MK_VIBE_START = 7,
 	MK_VIBE_END = 8,
 	MK_DATE_TOGGLE = 9,
 	MK_DIG_TIME_TOGGLE = 10,
-	MK_BT_ALERT_TOGGLE = 11
+	MK_BT_ALERT_TOGGLE = 11,
+	MK_HAND_OUTLINE_BOOL = 12
 };
 
 enum DateToggle {
@@ -97,7 +97,7 @@ static double s_hour_angle_adj_rad;
 static char buffer[2];
 static char buffer2[2];
 static char dateBuffer[16];
-static char dateBuffer2[8];
+static char dateBuffer2[9];
 
 static GColor backgroundColor;
 static GColor handColor;
@@ -125,74 +125,6 @@ static double getSin(double angle) {
 	return ( (double) sin_lookup(angle * TRIG_MAX_ANGLE / (2 * M_PI)) / (double) TRIG_MAX_RATIO);
 }
 
-static char* getDay(int dayInt) {
-	if (dayInt == 0) {
-		return "Sun";
-	}
-	else if (dayInt == 1) {
-		return "Mon";
-	}
-	else if (dayInt == 2) {
-		return "Tue";
-	}
-	else if (dayInt == 3) {
-		return "Wed";
-	}
-	else if (dayInt == 4) {
-		return "Thu";
-	}
-	else if (dayInt == 5) {
-		return "Fri";
-	}
-	else if (dayInt == 6) {
-		return "Sat";
-	}
-	else {
-		return "Err";
-	}
-}
-
-static char* getMonth(int monthInt) {
-	if (monthInt == 0) {
-		return "Jan";
-	}
-	else if (monthInt == 1) {
-		return "Feb";
-	}
-	else if (monthInt == 2) {
-		return "Mar";
-	}
-	else if (monthInt == 3) {
-		return "Apr";
-	}
-	else if (monthInt == 4) {
-		return "May";
-	}
-	else if (monthInt == 5) {
-		return "Jun";
-	}
-	else if (monthInt == 6) {
-		return "Jul";
-	}
-	else if (monthInt == 7) {
-		return "Aug";
-	}
-	else if (monthInt == 8) {
-		return "Sep";
-	}
-	else if (monthInt == 9) {
-		return "Oct";
-	}
-	else if (monthInt == 10) {
-		return "Nov";
-	}
-	else if (monthInt == 11) {
-		return "Dec";
-	}
-	else {
-		return "Err";
-	}
-}
 
 static int getHourInt(char* hourString) {
 	int toReturn = hourString[1] - '0';
@@ -263,8 +195,6 @@ static GColor getColor(char* colorString) {
 	}
 	else {
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "getColor received an invalid string: %s", colorString);
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "strcmp: %d", strcmp(colorString, "blu"));
-
 		return GColorWhite;
 	}
 }
@@ -274,12 +204,12 @@ void in_dropped_handler(AppMessageResult reason, void *ctx) {
 }
 
 static void top_line_layer_update_callback(Layer *layer, GContext *ctx) {
-	graphics_context_set_stroke_color(ctx, dotColor);
+	graphics_context_set_stroke_color(ctx, handColor);
 	gpath_draw_outline(ctx, topLinePath);
 }
 
 static void bot_line_layer_update_callback(Layer *layer, GContext *ctx) {
-	graphics_context_set_stroke_color(ctx, dotColor);
+	graphics_context_set_stroke_color(ctx, handColor);
 	gpath_draw_outline(ctx, botLinePath);
 }
 
@@ -292,7 +222,25 @@ static void path_layer_update_callback(Layer *layer, GContext *ctx) {
 	s_path_angle = (((timeStruct->tm_hour % 12) * 60) + timeStruct->tm_min) * 360 / (12 * 60);
 
 	gpath_rotate_to(s_line_path, (TRIG_MAX_ANGLE / 360) * s_path_angle);
-
+	
+	//I don't know what's happening anymore I need to refactor literally everything
+	//Goddamn C/PebbleSDK and its obscured memory management
+	if (persist_exists(MK_HAND_OUTLINE_COLOR)) {
+		char why[4];
+		persist_read_string(MK_HAND_OUTLINE_COLOR, why, sizeof(why));
+		if (strcmp(why, "nob") == 0) {
+			handBorderToggle = false;
+			handBorderColor = GColorBlack;
+		} else {
+			handBorderToggle = true;
+			handBorderColor = getColor(why);
+		}
+	}
+	else {
+		handBorderToggle = true;
+		handBorderColor = GColorBlack;
+	}
+	
 	graphics_context_set_stroke_color(ctx, handBorderColor);
 	graphics_context_set_fill_color(ctx, handColor);
 	gpath_draw_filled(ctx, s_line_path);	
@@ -570,7 +518,6 @@ static void bt_handler(bool connected) {
 
 static void in_received_handler(DictionaryIterator *received, void *ctx) {	
 	Tuple *currDictItem = dict_read_first(received);
-		
 	while (currDictItem) {		
 		if (currDictItem->key == MK_BACKGROUND_COLOR) {
 			backgroundColor = getColor(currDictItem->value->cstring);
@@ -590,9 +537,9 @@ static void in_received_handler(DictionaryIterator *received, void *ctx) {
 		}
 		else if (currDictItem->key == MK_HAND_OUTLINE_COLOR) {
 			if (strcmp(currDictItem->value->cstring, "nob") == 0) {
-				handBorderColor = GColorBlack;
+				handBorderColor = GColorWhite;
 				handBorderToggle = false;
-				persist_write_string(MK_HAND_OUTLINE_COLOR, "blk");
+				persist_write_string(MK_HAND_OUTLINE_COLOR, "wht");
 				persist_write_bool(MK_HAND_OUTLINE_BOOL, handBorderToggle);
 			}
 			else {
@@ -707,7 +654,7 @@ static void main_window_load(Window *window) {
 	}
 	else {
 		strftime(buffer, sizeof("00"), "%I", tick_time);
-		strftime(dateBuffer2, sizeof("00:00 XX"), "%I:%M %p", tick_time);
+		strftime(dateBuffer2, sizeof("00:00 XX"), "%l:%M %p", tick_time);
 	}
 	
 	s_path_angle = (((tick_time->tm_hour % 12) * 60) + tick_time->tm_min) / 2;
@@ -829,10 +776,10 @@ static void main_window_load(Window *window) {
 	text_layer_set_font(s_time_layer2, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
 	text_layer_set_text_alignment(s_time_layer2, GTextAlignmentCenter);
 	
-	text_layer_set_font(s_date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+	text_layer_set_font(s_date_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
 	text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
 	
-	text_layer_set_font(s_date_layer2, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+	text_layer_set_font(s_date_layer2, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
 	text_layer_set_text_alignment(s_date_layer2, GTextAlignmentCenter);
 	
 	s_dot_layer = layer_create(bounds);
@@ -919,7 +866,7 @@ static void init() {
 		handBorderColor = getColor(strBuffer);
 	}
 	else {
-		handBorderColor = GColorBlack;
+		handBorderColor = GColorWhite;
 	}
 	
 	if (persist_exists(MK_HAND_OUTLINE_BOOL)) {

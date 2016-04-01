@@ -17,6 +17,7 @@
         "configurable"
     ],
     "companyName": "shamhu@gmail.com",
+    "enableMultiJS": false,
     "longName": "Macro Clock",
     "projectType": "native",
     "resources": {
@@ -28,7 +29,7 @@
         "basalt"
     ],
     "uuid": "1e40b260-b1c2-4e46-90d1-20fc26173db3",
-    "versionLabel": "2.4",
+    "versionLabel": "2.6",
     "watchapp": {
         "watchface": true
     }
